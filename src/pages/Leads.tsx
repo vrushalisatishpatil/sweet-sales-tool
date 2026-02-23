@@ -1,11 +1,17 @@
 import { useState } from "react";
 import { leads as initialLeads, getStatusColor, type Lead, type LeadStatus } from "@/data/mockData";
-import { Plus, Search, Filter } from "lucide-react";
+import { Plus, Search, Filter, X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 const Leads = () => {
   const [leadsData] = useState<Lead[]>(initialLeads);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("All");
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const statuses: string[] = ["All", "New", "Contacted", "Follow-up", "Interested", "Converted", "Lost", "Pending"];
 
@@ -14,6 +20,16 @@ const Leads = () => {
     const matchStatus = filterStatus === "All" || l.status === filterStatus;
     return matchSearch && matchStatus;
   });
+
+  const handleRowClick = (lead: Lead) => {
+    setSelectedLead(lead);
+    setIsDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setSelectedLead(null);
+  };
 
   return (
     <div>
@@ -48,35 +64,128 @@ const Leads = () => {
         <table className="w-full">
           <thead>
             <tr className="border-b border-border bg-accent">
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Company</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Contact</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Source</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Status</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Assigned To</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Value</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Date</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">DATE</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">COMPANY</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">CONTACT PERSON / NO.</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">CITY</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">STATE</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">COUNTRY</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">ASSIGNED TO</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">STATUS</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((lead) => (
-              <tr key={lead.id} className="border-b border-border last:border-0 hover:bg-accent/50">
+              <tr 
+                key={lead.id} 
+                onClick={() => handleRowClick(lead)}
+                className="border-b border-border last:border-0 hover:bg-accent/50 cursor-pointer"
+              >
+                <td className="px-4 py-3 text-sm text-muted-foreground">{lead.createdAt}</td>
                 <td className="px-4 py-3 text-sm font-medium text-foreground">{lead.company}</td>
                 <td className="px-4 py-3">
                   <p className="text-sm text-foreground">{lead.contact}</p>
-                  <p className="text-xs text-muted-foreground">{lead.email}</p>
+                  <p className="text-xs text-muted-foreground">{lead.phone}</p>
                 </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{lead.source}</td>
-                <td className="px-4 py-3">
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(lead.status)}`}>{lead.status}</span>
-                </td>
+                <td className="px-4 py-3 text-sm text-muted-foreground">{lead.city}</td>
+                <td className="px-4 py-3 text-sm text-muted-foreground">{lead.state}</td>
+                <td className="px-4 py-3 text-sm text-muted-foreground">{lead.country}</td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">{lead.assignedTo}</td>
-                <td className="px-4 py-3 text-sm text-foreground">₹{(lead.value / 1000).toFixed(0)}K</td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{lead.createdAt}</td>
+                <td className="px-4 py-3">
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(lead.status)}`}>
+                    {lead.status}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* Lead Details Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Lead Details</DialogTitle>
+          </DialogHeader>
+          {selectedLead && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="company">Company</Label>
+                  <Input id="company" value={selectedLead.company} readOnly />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contact">Contact Person</Label>
+                  <Input id="contact" value={selectedLead.contact} readOnly />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input id="phone" value={selectedLead.phone} readOnly />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" value={selectedLead.email} readOnly />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="city">City</Label>
+                  <Input id="city" value={selectedLead.city} readOnly />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="state">State</Label>
+                  <Input id="state" value={selectedLead.state} readOnly />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="country">Country</Label>
+                  <Input id="country" value={selectedLead.country} readOnly />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="assignedTo">Assigned To</Label>
+                  <Input id="assignedTo" value={selectedLead.assignedTo} readOnly />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Input id="status" value={selectedLead.status} readOnly />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="source">Source</Label>
+                  <Input id="source" value={selectedLead.source} readOnly />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="value">Value</Label>
+                  <Input id="value" value={`₹${selectedLead.value.toLocaleString()}`} readOnly />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="date">Date Created</Label>
+                <Input id="date" value={selectedLead.createdAt} readOnly />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={handleCloseDialog}>
+                  Close
+                </Button>
+                <Button>
+                  Edit Lead
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

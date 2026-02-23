@@ -11,6 +11,9 @@ export interface Lead {
   assignedTo: string;
   createdAt: string;
   value: number;
+  city: string;
+  state: string;
+  country: string;
 }
 
 export interface FollowUp {
@@ -68,18 +71,18 @@ export interface Client {
 }
 
 export const leads: Lead[] = [
-  { id: "1", company: "TechVista Solutions", contact: "Arjun Mehta", source: "Website", status: "New", phone: "9812345678", email: "arjun@techvista.com", assignedTo: "Rahul Sharma", createdAt: "2025-02-20", value: 250000 },
-  { id: "2", company: "GreenLeaf Industries", contact: "Kavita Nair", source: "Reference", status: "Contacted", phone: "9823456789", email: "kavita@greenleaf.com", assignedTo: "Priya Patel", createdAt: "2025-02-19", value: 180000 },
-  { id: "3", company: "Metro Builders", contact: "Rajesh Iyer", source: "Call", status: "Follow-up", phone: "9834567890", email: "rajesh@metrobuilders.com", assignedTo: "Amit Kumar", createdAt: "2025-02-18", value: 420000 },
-  { id: "4", company: "Sunrise Healthcare", contact: "Dr. Meena Shah", source: "WhatsApp", status: "Interested", phone: "9845678901", email: "meena@sunrisehc.com", assignedTo: "Sneha Gupta", createdAt: "2025-02-17", value: 350000 },
-  { id: "5", company: "FastTrack Logistics", contact: "Nikhil Joshi", source: "Email", status: "Pending", phone: "9856789012", email: "nikhil@fasttrack.com", assignedTo: "Rahul Sharma", createdAt: "2025-02-16", value: 150000 },
-  { id: "6", company: "FoodChain India", contact: "Sanjay Gupta", source: "Visit", status: "Follow-up", phone: "9801234567", email: "sanjay@foodchain.com", assignedTo: "Rahul Sharma", createdAt: "2025-02-15", value: 280000 },
-  { id: "7", company: "AquaPure Water", contact: "Deepa Menon", source: "Email", status: "New", phone: "9812340000", email: "deepa@aquapure.com", assignedTo: "Priya Patel", createdAt: "2025-02-14", value: 120000 },
-  { id: "8", company: "SkyNet Telecom", contact: "Vikram Singh", source: "Website", status: "Contacted", phone: "9867890123", email: "vikram@skynet.com", assignedTo: "Amit Kumar", createdAt: "2025-02-13", value: 550000 },
-  { id: "9", company: "Elegant Interiors", contact: "Priya Desai", source: "Reference", status: "Interested", phone: "9878901234", email: "priya@elegant.com", assignedTo: "Sneha Gupta", createdAt: "2025-02-12", value: 200000 },
-  { id: "10", company: "Digital Dynamics", contact: "Rahul Verma", source: "Call", status: "Converted", phone: "9889012345", email: "rahul@digitald.com", assignedTo: "Rahul Sharma", createdAt: "2025-02-11", value: 480000 },
-  { id: "11", company: "NatureFirst Organics", contact: "Anita Rao", source: "WhatsApp", status: "Lost", phone: "9890123456", email: "anita@naturefirst.com", assignedTo: "Priya Patel", createdAt: "2025-02-10", value: 90000 },
-  { id: "12", company: "BuildRight Construction", contact: "Manoj Patil", source: "Visit", status: "Follow-up", phone: "9801234500", email: "manoj@buildright.com", assignedTo: "Amit Kumar", createdAt: "2025-02-09", value: 670000 },
+  { id: "1", company: "TechVista Solutions", contact: "Arjun Mehta", source: "Website", status: "New", phone: "9812345678", email: "arjun@techvista.com", assignedTo: "Rahul Sharma", createdAt: "10/02/2025", value: 250000, city: "Mumbai", state: "Maharashtra", country: "India" },
+  { id: "2", company: "GreenLeaf Industries", contact: "Kavita Nair", source: "Reference", status: "Contacted", phone: "9823456789", email: "kavita@greenleaf.com", assignedTo: "Priya Patel", createdAt: "09/02/2025", value: 180000, city: "Pune", state: "Maharashtra", country: "India" },
+  { id: "3", company: "Metro Builders", contact: "Rajesh Iyer", source: "Call", status: "Follow-up", phone: "9834567890", email: "rajesh@metrobuilders.com", assignedTo: "Amit Kumar", createdAt: "08/02/2025", value: 420000, city: "Chennai", state: "Tamil Nadu", country: "India" },
+  { id: "4", company: "Sunrise Healthcare", contact: "Dr. Meena Shah", source: "WhatsApp", status: "Interested", phone: "9845678901", email: "meena@sunrisehc.com", assignedTo: "Sneha Gupta", createdAt: "07/02/2025", value: 350000, city: "Ahmedabad", state: "Gujarat", country: "India" },
+  { id: "5", company: "FastTrack Logistics", contact: "Nikhil Joshi", source: "Email", status: "Pending", phone: "9856789012", email: "nikhil@fasttrack.com", assignedTo: "Rahul Sharma", createdAt: "06/02/2025", value: 150000, city: "Delhi", state: "Delhi", country: "India" },
+  { id: "6", company: "FoodChain India", contact: "Sanjay Gupta", source: "Visit", status: "Follow-up", phone: "9801234567", email: "sanjay@foodchain.com", assignedTo: "Rahul Sharma", createdAt: "05/02/2025", value: 280000, city: "Bangalore", state: "Karnataka", country: "India" },
+  { id: "7", company: "AquaPure Water", contact: "Deepa Menon", source: "Email", status: "New", phone: "9812340000", email: "deepa@aquapure.com", assignedTo: "Priya Patel", createdAt: "04/02/2025", value: 120000, city: "Kochi", state: "Kerala", country: "India" },
+  { id: "8", company: "SkyNet Telecom", contact: "Vikram Singh", source: "Website", status: "Contacted", phone: "9867890123", email: "vikram@skynet.com", assignedTo: "Amit Kumar", createdAt: "03/02/2025", value: 550000, city: "Hyderabad", state: "Telangana", country: "India" },
+  { id: "9", company: "Elegant Interiors", contact: "Priya Desai", source: "Reference", status: "Interested", phone: "9878901234", email: "priya@elegant.com", assignedTo: "Sneha Gupta", createdAt: "02/02/2025", value: 200000, city: "Surat", state: "Gujarat", country: "India" },
+  { id: "10", company: "Digital Dynamics", contact: "Rahul Verma", source: "Call", status: "Converted", phone: "9889012345", email: "rahul@digitald.com", assignedTo: "Rahul Sharma", createdAt: "01/02/2025", value: 480000, city: "Kolkata", state: "West Bengal", country: "India" },
+  { id: "11", company: "NatureFirst Organics", contact: "Anita Rao", source: "WhatsApp", status: "Lost", phone: "9890123456", email: "anita@naturefirst.com", assignedTo: "Priya Patel", createdAt: "31/01/2025", value: 90000, city: "Nagpur", state: "Maharashtra", country: "India" },
+  { id: "12", company: "BuildRight Construction", contact: "Manoj Patil", source: "Visit", status: "Follow-up", phone: "9801234500", email: "manoj@buildright.com", assignedTo: "Amit Kumar", createdAt: "30/01/2025", value: 670000, city: "Nashik", state: "Maharashtra", country: "India" },
 ];
 
 export const followUps: FollowUp[] = [
