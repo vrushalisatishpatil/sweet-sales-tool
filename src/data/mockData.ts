@@ -61,9 +61,11 @@ export interface Note {
   id: string;
   leadId: string;
   company: string;
+  title: string;
   content: string;
   createdBy: string;
   createdAt: string;
+  category: "Lead" | "General";
 }
 
 export interface Client {
@@ -120,11 +122,12 @@ export const tasks: Task[] = [
 ];
 
 export const notes: Note[] = [
-  { id: "1", leadId: "3", company: "Metro Builders", content: "Client is interested in project management module. Budget around 4-5 lakhs. Decision expected by end of month.", createdBy: "Amit Kumar", createdAt: "2025-02-22" },
-  { id: "2", leadId: "4", company: "Sunrise Healthcare", content: "Needs HMS with patient management, billing, and pharmacy modules. Currently using manual processes.", createdBy: "Sneha Gupta", createdAt: "2025-02-21" },
-  { id: "3", leadId: "1", company: "TechVista Solutions", content: "Looking for CRM solution. Has a team of 50+ employees. Wants cloud-based solution.", createdBy: "Rahul Sharma", createdAt: "2025-02-20" },
-  { id: "4", leadId: "6", company: "FoodChain India", content: "Operates 12 outlets. Needs centralized POS with inventory management. Pilot at one outlet first.", createdBy: "Rahul Sharma", createdAt: "2025-02-19" },
-  { id: "5", leadId: "10", company: "Digital Dynamics", content: "Converted! Signed contract for ERP implementation. Project starts March 1st.", createdBy: "Rahul Sharma", createdAt: "2025-02-18" },
+  { id: "1", leadId: "1", company: "TechVista Solutions", title: "TechVista Requirements Summary", content: "They need enterprise CRM with at least 50 user licenses. Key features: pipeline management, email integration, reporting dashboard. Budget range: 5-8 lakhs annually.", createdBy: "Rahul Sharma", createdAt: "2025-02-13", category: "Lead" },
+  { id: "2", leadId: "0", company: "", title: "Competitor Analysis - Q1 2025", content: "Main competitors offering similar CRM solutions at 20% lower pricing. Need to emphasize our support quality and customization options.", createdBy: "Priya Patel", createdAt: "2025-02-12", category: "General" },
+  { id: "3", leadId: "4", company: "Sunrise Healthcare", title: "Sunrise Healthcare - Decision Makers", content: "Dr. Meena Shah is the primary decision maker. CFO Mr. Ravi needs to approve budget. IT Head Sanjay will evaluate technical aspects.", createdBy: "Sneha Gupta", createdAt: "2025-02-11", category: "Lead" },
+  { id: "4", leadId: "0", company: "", title: "Sales Team Weekly Standup Notes", content: "Key points: Focus on converting 'Interested' leads this week. Rahul to handle 3 demos. Priya to close AquaPure deal. Training session on new CRM features Friday.", createdBy: "Amit Kumar", createdAt: "2025-02-10", category: "General" },
+  { id: "5", leadId: "6", company: "FoodChain India", title: "FoodChain POS Requirements", content: "Need multi-location POS with inventory sync. 12 outlets require seamless integration. Budget: 3-4 lakhs. Pilot at one outlet first before full rollout.", createdBy: "Rahul Sharma", createdAt: "2025-02-09", category: "Lead" },
+  { id: "6", leadId: "0", company: "", title: "New Pricing Strategy Ideas", content: "Consider tiered pricing: Basic (up to 10 users), Pro (up to 50 users), Enterprise (unlimited). Add annual discount of 15%. Bundle training with packages.", createdBy: "Priya Patel", createdAt: "2025-02-08", category: "General" },
 ];
 
 export const clients: Client[] = [
