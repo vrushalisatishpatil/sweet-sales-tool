@@ -1,12 +1,17 @@
 import { tasks as initialTasks, getPriorityColor, getTaskStatusColor, salesTeam, leads } from "@/data/mockData";
 import { useState } from "react";
-import { Plus, Search, ListTodo, Clock, AlertTriangle, CheckCircle2, User, Calendar, Building2 } from "lucide-react";
+import { Plus, Search, ListTodo, Clock, AlertTriangle, CheckCircle2, User, Calendar, Building2, Filter, Check, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const AssignTasks = () => {
   const [tasksData] = useState(initialTasks);
@@ -14,6 +19,8 @@ const AssignTasks = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [priorityFilter, setPriorityFilter] = useState("All Priorities");
+  const [isStatusOpen, setIsStatusOpen] = useState(false);
+  const [isPriorityOpen, setIsPriorityOpen] = useState(false);
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
@@ -22,6 +29,22 @@ const AssignTasks = () => {
     priority: "",
     dueDate: ""
   });
+
+  const statusOptions = [
+    "All Status",
+    "Pending",
+    "In Progress",
+    "Completed",
+    "Overdue"
+  ];
+
+  const priorityOptions = [
+    "All Priorities",
+    "Low",
+    "Medium",
+    "High",
+    "Urgent"
+  ];
 
   const handleOpenCreateTaskDialog = () => {
     setIsCreateTaskDialogOpen(true);
@@ -155,29 +178,66 @@ const AssignTasks = () => {
             className="w-full border-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground" 
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All Status">All Status</SelectItem>
-            <SelectItem value="Pending">Pending</SelectItem>
-            <SelectItem value="In Progress">In Progress</SelectItem>
-            <SelectItem value="Completed">Completed</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All Priorities" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All Priorities">All Priorities</SelectItem>
-            <SelectItem value="Urgent">Urgent</SelectItem>
-            <SelectItem value="High">High</SelectItem>
-            <SelectItem value="Medium">Medium</SelectItem>
-            <SelectItem value="Low">Low</SelectItem>
-          </SelectContent>
-        </Select>
+        <Popover open={isStatusOpen} onOpenChange={setIsStatusOpen}>
+          <PopoverTrigger asChild>
+            <button className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50">
+              <Filter className="h-4 w-4 text-gray-600" />
+              <span>{statusFilter}</span>
+              <ChevronDown className="h-4 w-4 text-gray-500" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[180px] p-0" align="start">
+            <div className="py-1">
+              {statusOptions.map((status) => (
+                <button
+                  key={status}
+                  onClick={() => {
+                    setStatusFilter(status);
+                    setIsStatusOpen(false);
+                  }}
+                  className={`w-full px-3 py-2 text-sm text-left flex items-center gap-2 ${
+                    statusFilter === status
+                      ? "bg-red-600 text-white"
+                      : "hover:bg-gray-100 text-gray-900"
+                  }`}
+                >
+                  {statusFilter === status && <Check className="h-4 w-4" />}
+                  <span className={statusFilter === status ? "" : "ml-6"}>{status}</span>
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+        <Popover open={isPriorityOpen} onOpenChange={setIsPriorityOpen}>
+          <PopoverTrigger asChild>
+            <button className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50">
+              <AlertTriangle className="h-4 w-4 text-gray-600" />
+              <span>{priorityFilter}</span>
+              <ChevronDown className="h-4 w-4 text-gray-500" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[180px] p-0" align="start">
+            <div className="py-1">
+              {priorityOptions.map((priority) => (
+                <button
+                  key={priority}
+                  onClick={() => {
+                    setPriorityFilter(priority);
+                    setIsPriorityOpen(false);
+                  }}
+                  className={`w-full px-3 py-2 text-sm text-left flex items-center gap-2 ${
+                    priorityFilter === priority
+                      ? "bg-red-600 text-white"
+                      : "hover:bg-gray-100 text-gray-900"
+                  }`}
+                >
+                  {priorityFilter === priority && <Check className="h-4 w-4" />}
+                  <span className={priorityFilter === priority ? "" : "ml-6"}>{priority}</span>
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Task Cards */}
