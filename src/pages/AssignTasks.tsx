@@ -1,6 +1,6 @@
 import { tasks as initialTasks, getPriorityColor, getTaskStatusColor, salesTeam, leads } from "@/data/mockData";
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Search, ListTodo, Clock, AlertTriangle, CheckCircle2, User, Calendar, Building2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 const AssignTasks = () => {
   const [tasksData] = useState(initialTasks);
   const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All Status");
+  const [priorityFilter, setPriorityFilter] = useState("All Priorities");
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
@@ -42,54 +45,207 @@ const AssignTasks = () => {
     handleCloseCreateTaskDialog();
   };
 
+  const handleStatusChange = (taskId: string, newStatus: string) => {
+    console.log(`Task ${taskId} status changed to ${newStatus}`);
+    // Add your status update logic here
+  };
+
+  // Filter tasks
+  const filteredTasks = tasksData.filter((task) => {
+    const matchesSearch = 
+      task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.taskId.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === "All Status" || task.status === statusFilter;
+    const matchesPriority = priorityFilter === "All Priorities" || task.priority === priorityFilter;
+    return matchesSearch && matchesStatus && matchesPriority;
+  });
+
+  // Calculate statistics
+  const totalTasks = tasksData.length;
+  const pendingTasks = tasksData.filter(t => t.status === "Pending").length;
+  const inProgressTasks = tasksData.filter(t => t.status === "In Progress").length;
+  const completedTasks = tasksData.filter(t => t.status === "Completed").length;
+
+  const getPriorityBadgeColor = (priority: string) => {
+    switch (priority) {
+      case "Urgent":
+        return "bg-red-100 text-red-700 border-red-200";
+      case "High":
+        return "bg-orange-100 text-orange-700 border-orange-200";
+      case "Medium":
+        return "bg-blue-100 text-blue-700 border-blue-200";
+      case "Low":
+        return "bg-gray-100 text-gray-700 border-gray-200";
+      default:
+        return "bg-gray-100 text-gray-700 border-gray-200";
+    }
+  };
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case "Pending":
+        return "bg-yellow-100 text-yellow-700 border-yellow-200";
+      case "In Progress":
+        return "bg-blue-100 text-blue-700 border-blue-200";
+      case "Completed":
+        return "bg-green-100 text-green-700 border-green-200";
+      default:
+        return "bg-gray-100 text-gray-700 border-gray-200";
+    }
+  };
+
   return (
     <div>
+      {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Assign Tasks</h1>
-          <p className="text-sm text-muted-foreground">Create and manage tasks for your sales team</p>
+          <p className="text-sm text-muted-foreground">{totalTasks} tasks found</p>
         </div>
         <button 
           onClick={handleOpenCreateTaskDialog}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+          className="flex items-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 px-4 py-2 text-sm font-medium text-white"
         >
           <Plus className="h-4 w-4" /> New Task
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border bg-accent">
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Task</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Lead</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Assigned To</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Priority</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Status</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Due Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tasksData.map((task) => (
-              <tr key={task.id} className="border-b border-border last:border-0 hover:bg-accent/50">
-                <td className="px-4 py-3">
-                  <p className="text-sm font-medium text-foreground">{task.title}</p>
-                  <p className="text-xs text-muted-foreground">{task.description}</p>
-                </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{task.leadCompany}</td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{task.assignedTo}</td>
-                <td className="px-4 py-3">
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getPriorityColor(task.priority)}`}>{task.priority}</span>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getTaskStatusColor(task.status)}`}>{task.status}</span>
-                </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{task.dueDate}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Statistics Cards */}
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-muted-foreground">Total Tasks</p>
+            <ListTodo className="h-5 w-5 text-blue-600" />
+          </div>
+          <p className="text-3xl font-bold text-foreground">{totalTasks}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-muted-foreground">Pending</p>
+            <Clock className="h-5 w-5 text-yellow-600" />
+          </div>
+          <p className="text-3xl font-bold text-foreground">{pendingTasks}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-muted-foreground">In Progress</p>
+            <AlertTriangle className="h-5 w-5 text-blue-600" />
+          </div>
+          <p className="text-3xl font-bold text-foreground">{inProgressTasks}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-muted-foreground">Completed</p>
+            <CheckCircle2 className="h-5 w-5 text-green-600" />
+          </div>
+          <p className="text-3xl font-bold text-foreground">{completedTasks}</p>
+        </div>
       </div>
+
+      {/* Search and Filters */}
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 rounded-lg border border-input bg-card px-3 py-2 flex-1 min-w-[200px] max-w-md">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <input 
+            type="text" 
+            placeholder="Search tasks..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full border-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground" 
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="All Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All Status">All Status</SelectItem>
+            <SelectItem value="Pending">Pending</SelectItem>
+            <SelectItem value="In Progress">In Progress</SelectItem>
+            <SelectItem value="Completed">Completed</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="All Priorities" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All Priorities">All Priorities</SelectItem>
+            <SelectItem value="Urgent">Urgent</SelectItem>
+            <SelectItem value="High">High</SelectItem>
+            <SelectItem value="Medium">Medium</SelectItem>
+            <SelectItem value="Low">Low</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Task Cards */}
+      <div className="space-y-4">
+        {filteredTasks.map((task) => (
+          <div key={task.id} className="rounded-xl border border-border bg-card p-5 hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                {/* Task ID and Badges */}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-sm font-medium text-muted-foreground">{task.taskId}</span>
+                  <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${getPriorityBadgeColor(task.priority)}`}>
+                    {task.priority}
+                  </span>
+                  <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${getStatusBadgeColor(task.status)}`}>
+                    {task.status}
+                  </span>
+                </div>
+
+                {/* Task Title */}
+                <h3 className="text-base font-semibold text-foreground mb-2">{task.title}</h3>
+
+                {/* Task Description */}
+                <p className="text-sm text-muted-foreground mb-4">{task.description}</p>
+
+                {/* Task Meta Information */}
+                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <User className="h-4 w-4" />
+                    <span>{task.assignedTo}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-4 w-4" />
+                    <span>Due: {task.dueDate}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Building2 className="h-4 w-4" />
+                    <span>{task.leadCompany}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Dropdown */}
+              <div className="shrink-0">
+                <Select 
+                  value={task.status} 
+                  onValueChange={(value) => handleStatusChange(task.id, value)}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {filteredTasks.length === 0 && (
+        <div className="rounded-xl border border-border bg-card p-12 text-center">
+          <p className="text-muted-foreground">No tasks found</p>
+        </div>
+      )}
 
       {/* Create New Task Dialog */}
       <Dialog open={isCreateTaskDialogOpen} onOpenChange={setIsCreateTaskDialogOpen}>

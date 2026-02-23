@@ -47,11 +47,12 @@ export interface SalesPerson {
 
 export interface Task {
   id: string;
+  taskId: string;
   title: string;
   description: string;
   assignedTo: string;
   leadCompany: string;
-  priority: "High" | "Medium" | "Low";
+  priority: "High" | "Medium" | "Low" | "Urgent";
   status: "Pending" | "In Progress" | "Completed";
   dueDate: string;
 }
@@ -108,11 +109,14 @@ export const salesTeam: SalesPerson[] = [
 ];
 
 export const tasks: Task[] = [
-  { id: "1", title: "Send proposal to Metro Builders", description: "Prepare and send a detailed software proposal", assignedTo: "Amit Kumar", leadCompany: "Metro Builders", priority: "High", status: "In Progress", dueDate: "2025-02-24" },
-  { id: "2", title: "Follow up with Sunrise Healthcare", description: "Check on the pricing proposal response", assignedTo: "Sneha Gupta", leadCompany: "Sunrise Healthcare", priority: "High", status: "Pending", dueDate: "2025-02-23" },
-  { id: "3", title: "Demo for TechVista Solutions", description: "Prepare and conduct product demo", assignedTo: "Rahul Sharma", leadCompany: "TechVista Solutions", priority: "Medium", status: "Pending", dueDate: "2025-02-25" },
-  { id: "4", title: "Collect requirements from FoodChain", description: "Visit and document POS requirements", assignedTo: "Rahul Sharma", leadCompany: "FoodChain India", priority: "Medium", status: "Completed", dueDate: "2025-02-22" },
-  { id: "5", title: "Send brochure to AquaPure Water", description: "Email product brochure and case studies", assignedTo: "Priya Patel", leadCompany: "AquaPure Water", priority: "Low", status: "Pending", dueDate: "2025-02-26" },
+  { id: "1", taskId: "TSK-001", title: "Schedule demo for TechVista", description: "Set up a product demo session with Arjun Mehta", assignedTo: "Rahul Sharma", leadCompany: "TechVista Solutions", priority: "High", status: "Pending", dueDate: "2025-02-15" },
+  { id: "2", taskId: "TSK-002", title: "Send pricing proposal", description: "Prepare and send detailed pricing for HMS Software", assignedTo: "Sneha Gupta", leadCompany: "Sunrise Healthcare", priority: "Urgent", status: "In Progress", dueDate: "2025-02-14" },
+  { id: "3", taskId: "TSK-003", title: "Follow up on quotation", description: "Check if Metro Builders received the quotation", assignedTo: "Amit Kumar", leadCompany: "Metro Builders", priority: "Medium", status: "Pending", dueDate: "2025-02-16" },
+  { id: "4", taskId: "TSK-004", title: "Collect requirements", description: "Visit and document POS requirements", assignedTo: "Rahul Sharma", leadCompany: "FoodChain India", priority: "Medium", status: "Completed", dueDate: "2025-02-13" },
+  { id: "5", taskId: "TSK-005", title: "Send brochure", description: "Email product brochure and case studies", assignedTo: "Priya Patel", leadCompany: "AquaPure Water", priority: "Low", status: "Pending", dueDate: "2025-02-17" },
+  { id: "6", taskId: "TSK-006", title: "Contract preparation", description: "Prepare service agreement for Digital Dynamics", assignedTo: "Amit Kumar", leadCompany: "Digital Dynamics", priority: "High", status: "In Progress", dueDate: "2025-02-15" },
+  { id: "7", taskId: "TSK-007", title: "Technical discussion", description: "Schedule technical call with IT team", assignedTo: "Priya Patel", leadCompany: "SkyNet Telecom", priority: "Medium", status: "Completed", dueDate: "2025-02-12" },
+  { id: "8", taskId: "TSK-008", title: "Budget approval follow-up", description: "Check on budget approval status with finance team", assignedTo: "Sneha Gupta", leadCompany: "FastTrack Logistics", priority: "Low", status: "Pending", dueDate: "2025-02-18" },
 ];
 
 export const notes: Note[] = [
