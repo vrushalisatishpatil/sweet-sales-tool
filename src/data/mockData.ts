@@ -43,6 +43,11 @@ export interface SalesPerson {
   leadsAssigned: number;
   conversions: number;
   avatar: string;
+  employeeId: string;
+  status: "Active" | "Inactive";
+  leads: number;
+  converted: number;
+  rate: string;
 }
 
 export interface Task {
@@ -104,10 +109,11 @@ export const followUps: FollowUp[] = [
 ];
 
 export const salesTeam: SalesPerson[] = [
-  { id: "1", name: "Rahul Sharma", email: "rahul@waxity.com", phone: "9800000001", role: "Senior Sales Executive", leadsAssigned: 4, conversions: 1, avatar: "RS" },
-  { id: "2", name: "Priya Patel", email: "priya@waxity.com", phone: "9800000002", role: "Sales Executive", leadsAssigned: 3, conversions: 0, avatar: "PP" },
-  { id: "3", name: "Amit Kumar", email: "amit@waxity.com", phone: "9800000003", role: "Sales Manager", leadsAssigned: 3, conversions: 0, avatar: "AK" },
-  { id: "4", name: "Sneha Gupta", email: "sneha@waxity.com", phone: "9800000004", role: "Business Development", leadsAssigned: 2, conversions: 0, avatar: "SG" },
+  { id: "1", name: "Rahul Sharma", email: "rahul@company.com", phone: "9876543210", role: "Senior Sales Executive", leadsAssigned: 4, conversions: 1, avatar: "RS", employeeId: "SP001", status: "Active", leads: 45, converted: 12, rate: "27%" },
+  { id: "2", name: "Priya Patel", email: "priya@company.com", phone: "9876543211", role: "Sales Executive", leadsAssigned: 3, conversions: 0, avatar: "PP", employeeId: "SP002", status: "Active", leads: 38, converted: 15, rate: "39%" },
+  { id: "3", name: "Amit Kumar", email: "amit@company.com", phone: "9876543212", role: "Sales Manager", leadsAssigned: 3, conversions: 0, avatar: "AK", employeeId: "SP003", status: "Active", leads: 52, converted: 18, rate: "35%" },
+  { id: "4", name: "Sneha Gupta", email: "sneha@company.com", phone: "9876543213", role: "Business Development", leadsAssigned: 2, conversions: 0, avatar: "SG", employeeId: "SP004", status: "Active", leads: 42, converted: 16, rate: "38%" },
+  { id: "5", name: "Vikram Singh", email: "vikram@company.com", phone: "9876543214", role: "Sales Executive", leadsAssigned: 1, conversions: 0, avatar: "VS", employeeId: "SP005", status: "Inactive", leads: 30, converted: 10, rate: "33%" },
 ];
 
 export const tasks: Task[] = [
@@ -136,9 +142,10 @@ export const clients: Client[] = [
 
 export const salesPerformanceData = [
   { name: "Rahul", leads: 45, conversions: 12 },
-  { name: "Priya", leads: 38, conversions: 8 },
-  { name: "Amit", leads: 42, conversions: 10 },
-  { name: "Sneha", leads: 35, conversions: 9 },
+  { name: "Priya", leads: 38, conversions: 15 },
+  { name: "Amit", leads: 52, conversions: 18 },
+  { name: "Sneha", leads: 29, conversions: 8 },
+  { name: "Vikram", leads: 15, conversions: 5 },
 ];
 
 export const weeklyLeadTrend = [
@@ -152,10 +159,12 @@ export const weeklyLeadTrend = [
 ];
 
 export const leadStatusDistribution = [
-  { name: "New", value: 2, color: "hsl(210, 80%, 55%)" },
-  { name: "Contacted", value: 2, color: "hsl(220, 15%, 50%)" },
-  { name: "Follow-up", value: 2, color: "hsl(45, 93%, 58%)" },
+  { name: "New", value: 2, color: "hsl(210, 100%, 60%)" },
+  { name: "Contacted", value: 2, color: "hsl(210, 50%, 45%)" },
+  { name: "Follow-up Required", value: 2, color: "hsl(45, 93%, 58%)" },
   { name: "Interested", value: 2, color: "hsl(270, 60%, 55%)" },
+  { name: "Not Interested", value: 1, color: "hsl(0, 0%, 60%)" },
+  { name: "Pending", value: 1, color: "hsl(30, 100%, 50%)" },
   { name: "Converted", value: 1, color: "hsl(142, 70%, 45%)" },
   { name: "Lost", value: 1, color: "hsl(0, 72%, 51%)" },
 ];
