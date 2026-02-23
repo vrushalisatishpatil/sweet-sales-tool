@@ -30,6 +30,8 @@ export interface FollowUp {
   phone: string;
   date: string;
   completed: boolean;
+  nextAction: string;
+  nextFollowUpDate: string;
 }
 
 export interface SalesPerson {
@@ -90,12 +92,12 @@ export const leads: Lead[] = [
 ];
 
 export const followUps: FollowUp[] = [
-  { id: "1", leadId: "3", company: "Metro Builders", note: "Discussed project management requirements in detail", by: "Amit Kumar", method: "Call", phone: "9834567890", date: "2025-02-23", completed: false },
-  { id: "2", leadId: "4", company: "Sunrise Healthcare", note: "Sent pricing proposal for HMS software", by: "Sneha Gupta", method: "Email", phone: "9845678901", date: "2025-02-23", completed: false },
-  { id: "3", leadId: "5", company: "FastTrack Logistics", note: "Checked on budget approval status", by: "Rahul Sharma", method: "WhatsApp", phone: "9856789012", date: "2025-02-23", completed: false },
-  { id: "4", leadId: "6", company: "FoodChain India", note: "Visited their main outlet, assessed POS needs", by: "Rahul Sharma", method: "Visit", phone: "9801234567", date: "2025-02-23", completed: false },
-  { id: "5", leadId: "1", company: "TechVista Solutions", note: "Initial discovery call, needs identified", by: "Rahul Sharma", method: "Call", phone: "9812345678", date: "2025-02-23", completed: false },
-  { id: "6", leadId: "7", company: "AquaPure Water", note: "Shared IoT dashboard demo link", by: "Priya Patel", method: "Email", phone: "9812340000", date: "2025-02-23", completed: false },
+  { id: "1", leadId: "3", company: "Metro Builders", note: "Discussed project management requirements in detail", by: "Amit Kumar", method: "Call", phone: "9834567890", date: "2025-02-13", completed: false, nextAction: "Schedule product demo", nextFollowUpDate: "2025-02-15" },
+  { id: "2", leadId: "4", company: "Sunrise Healthcare", note: "Sent pricing proposal for HMS software", by: "Sneha Gupta", method: "Email", phone: "9845678901", date: "2025-02-13", completed: false, nextAction: "Follow up on pricing approval", nextFollowUpDate: "2025-02-16" },
+  { id: "3", leadId: "5", company: "FastTrack Logistics", note: "Checked on budget approval status", by: "Rahul Sharma", method: "WhatsApp", phone: "9856789012", date: "2025-02-13", completed: false, nextAction: "Send detailed quotation", nextFollowUpDate: "2025-02-17" },
+  { id: "4", leadId: "6", company: "FoodChain India", note: "Visited their main outlet, assessed POS needs", by: "Rahul Sharma", method: "Visit", phone: "9801234567", date: "2025-02-13", completed: false, nextAction: "Prepare customized proposal", nextFollowUpDate: "2025-02-18" },
+  { id: "5", leadId: "1", company: "TechVista Solutions", note: "Initial discovery call, needs identified", by: "Rahul Sharma", method: "Call", phone: "9812345678", date: "2025-02-13", completed: false, nextAction: "Share case studies", nextFollowUpDate: "2025-02-19" },
+  { id: "6", leadId: "7", company: "AquaPure Water", note: "Shared IoT dashboard demo link", by: "Priya Patel", method: "Email", phone: "9812340000", date: "2025-02-13", completed: false, nextAction: "Arrange technical discussion", nextFollowUpDate: "2025-02-20" },
 ];
 
 export const salesTeam: SalesPerson[] = [
