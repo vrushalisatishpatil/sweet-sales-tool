@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { leads as initialLeads, getStatusColor, type Lead, type LeadStatus } from "@/data/mockData";
-import { Plus, Search, Filter, X } from "lucide-react";
+import { Plus, Search, Filter, X, User, Phone, Mail } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 const Leads = () => {
   const [leadsData] = useState<Lead[]>(initialLeads);
@@ -12,6 +14,10 @@ const Leads = () => {
   const [filterStatus, setFilterStatus] = useState<string>("All");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<string>("");
+  const [followUpNotes, setFollowUpNotes] = useState("");
+  const [followUpType, setFollowUpType] = useState("");
+  const [nextFollowUpDate, setNextFollowUpDate] = useState("");
 
   const statuses: string[] = ["All", "New", "Contacted", "Follow-up", "Interested", "Converted", "Lost", "Pending"];
 
@@ -24,11 +30,26 @@ const Leads = () => {
   const handleRowClick = (lead: Lead) => {
     setSelectedLead(lead);
     setIsDialogOpen(true);
+    setUpdateStatus("");
+    setFollowUpNotes("");
+    setFollowUpType("");
+    setNextFollowUpDate("");
   };
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setSelectedLead(null);
+  };
+
+  const handleSaveFollowUp = () => {
+    console.log("Follow-up saved:", {
+      leadId: selectedLead?.id,
+      notes: followUpNotes,
+      type: followUpType,
+      date: nextFollowUpDate,
+      status: updateStatus
+    });
+    // Add your follow-up save logic here
   };
 
   return (
@@ -104,82 +125,151 @@ const Leads = () => {
 
       {/* Lead Details Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Lead Details</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           {selectedLead && (
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="company">Company</Label>
-                  <Input id="company" value={selectedLead.company} readOnly />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contact">Contact Person</Label>
-                  <Input id="contact" value={selectedLead.contact} readOnly />
+              {/* Header with Title and Status */}
+              <div className="flex items-center justify-between -mt-2">
+                <h2 className="text-xl font-semibold text-foreground">{selectedLead.company}</h2>
+                <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(selectedLead.status)}`}>
+                  {selectedLead.status}
+                </span>
+              </div>
+
+              {/* Contact Information Section */}
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-3">Contact Information</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Contact Person</p>
+                      <p className="text-sm font-medium text-foreground">{selectedLead.contact}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Phone</p>
+                      <p className="text-sm font-medium text-foreground">{selectedLead.phone}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Email</p>
+                      <p className="text-sm font-medium text-foreground">{selectedLead.email}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" value={selectedLead.phone} readOnly />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" value={selectedLead.email} readOnly />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input id="city" value={selectedLead.city} readOnly />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="state">State</Label>
-                  <Input id="state" value={selectedLead.state} readOnly />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="country">Country</Label>
-                  <Input id="country" value={selectedLead.country} readOnly />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="assignedTo">Assigned To</Label>
-                  <Input id="assignedTo" value={selectedLead.assignedTo} readOnly />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Input id="status" value={selectedLead.status} readOnly />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="source">Source</Label>
-                  <Input id="source" value={selectedLead.source} readOnly />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="value">Value</Label>
-                  <Input id="value" value={`₹${selectedLead.value.toLocaleString()}`} readOnly />
+              {/* Lead Details Section */}
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-3">Lead Details</h3>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Lead ID</p>
+                    <p className="text-sm font-medium text-foreground">{selectedLead.leadId}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Inquiry Date</p>
+                    <p className="text-sm font-medium text-foreground">{selectedLead.inquiryDate}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">City</p>
+                    <p className="text-sm font-medium text-foreground">{selectedLead.city}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">State</p>
+                    <p className="text-sm font-medium text-foreground">{selectedLead.state}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Country</p>
+                    <p className="text-sm font-medium text-foreground">{selectedLead.country}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Source</p>
+                    <p className="text-sm font-medium text-foreground">{selectedLead.source}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground">Assigned To</p>
+                    <p className="text-sm font-medium text-foreground">{selectedLead.assignedTo}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground">Product Interested</p>
+                    <p className="text-sm font-medium text-foreground">{selectedLead.productInterested}</p>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="date">Date Created</Label>
-                <Input id="date" value={selectedLead.createdAt} readOnly />
+              {/* Remarks Section */}
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-2">Remarks</h3>
+                <div className="rounded-lg bg-accent/50 p-3">
+                  <p className="text-sm text-foreground">{selectedLead.remarks}</p>
+                </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={handleCloseDialog}>
-                  Close
-                </Button>
-                <Button>
-                  Edit Lead
+              {/* Update Status Section */}
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-2">Update Status</h3>
+                <Select value={updateStatus} onValueChange={setUpdateStatus}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="New">New</SelectItem>
+                    <SelectItem value="Contacted">Contacted</SelectItem>
+                    <SelectItem value="Follow-up">Follow-up Required</SelectItem>
+                    <SelectItem value="Interested">Interested</SelectItem>
+                    <SelectItem value="Converted">Converted</SelectItem>
+                    <SelectItem value="Lost">Lost</SelectItem>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Add Follow-up Section */}
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-2">Add Follow-up</h3>
+                <Textarea
+                  placeholder="Enter follow-up notes..."
+                  value={followUpNotes}
+                  onChange={(e) => setFollowUpNotes(e.target.value)}
+                  className="min-h-[80px] resize-none"
+                />
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">Follow-up Type</Label>
+                    <Select value={followUpType} onValueChange={setFollowUpType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Call">Call</SelectItem>
+                        <SelectItem value="Email">Email</SelectItem>
+                        <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                        <SelectItem value="Visit">Visit</SelectItem>
+                        <SelectItem value="Meeting">Meeting</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">Next Follow-up</Label>
+                    <Input
+                      type="date"
+                      value={nextFollowUpDate}
+                      onChange={(e) => setNextFollowUpDate(e.target.value)}
+                      placeholder="mm/dd/yyyy"
+                    />
+                  </div>
+                </div>
+                <Button 
+                  className="w-full mt-4 bg-red-600 hover:bg-red-700 text-white"
+                  onClick={handleSaveFollowUp}
+                >
+                  Save Follow-up
                 </Button>
               </div>
             </div>
