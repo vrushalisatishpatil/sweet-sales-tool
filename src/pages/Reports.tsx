@@ -14,6 +14,7 @@ const Reports = () => {
   const [selectedPerson, setSelectedPerson] = useState("All Sales Persons");
   const [selectedStatus, setSelectedStatus] = useState("All Status");
   const [isStatusOpen, setIsStatusOpen] = useState(false);
+  const [isPersonOpen, setIsPersonOpen] = useState(false);
 
   const statusOptions = [
     "All Status",
@@ -25,6 +26,15 @@ const Reports = () => {
     "Pending",
     "Converted",
     "Lost"
+  ];
+
+  const personOptions = [
+    "All Sales Persons",
+    "Rahul Sharma",
+    "Priya Patel",
+    "Amit Kumar",
+    "Sneha Gupta",
+    "Vikram Singh"
   ];
 
   return (
@@ -78,25 +88,35 @@ const Reports = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-2">Sales Person</label>
-            <select 
-              value={selectedPerson}
-              onChange={(e) => setSelectedPerson(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white appearance-none"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
-                backgroundPosition: 'right 0.5rem center',
-                backgroundRepeat: 'no-repeat',
-                backgroundSize: '1.5em 1.5em',
-                paddingRight: '2.5rem'
-              }}
-            >
-              <option>All Sales Persons</option>
-              <option>Rahul Sharma</option>
-              <option>Priya Patel</option>
-              <option>Amit Kumar</option>
-              <option>Sneha Gupta</option>
-              <option>Vikram Singh</option>
-            </select>
+            <Popover open={isPersonOpen} onOpenChange={setIsPersonOpen}>
+              <PopoverTrigger asChild>
+                <button className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white text-left flex items-center justify-between hover:bg-gray-50">
+                  <span>{selectedPerson}</span>
+                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[240px] p-0" align="start">
+                <div className="py-1">
+                  {personOptions.map((person) => (
+                    <button
+                      key={person}
+                      onClick={() => {
+                        setSelectedPerson(person);
+                        setIsPersonOpen(false);
+                      }}
+                      className={`w-full px-3 py-2 text-sm text-left flex items-center gap-2 ${
+                        selectedPerson === person
+                          ? "bg-red-600 text-white"
+                          : "hover:bg-gray-100 text-gray-900"
+                      }`}
+                    >
+                      {selectedPerson === person && <Check className="h-4 w-4" />}
+                      <span className={selectedPerson === person ? "" : "ml-6"}>{person}</span>
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-2">Lead Status</label>
