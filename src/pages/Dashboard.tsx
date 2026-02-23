@@ -1,5 +1,5 @@
-import { Target, CheckCircle, Clock, Users } from "lucide-react";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, ResponsiveContainer } from "recharts";
+import { Target, CheckCircle, Clock, Users, Phone, Mail, MessageSquare, MapPin } from "lucide-react";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, Area, AreaChart, ResponsiveContainer } from "recharts";
 import { leads, followUps, salesTeam, salesPerformanceData, weeklyLeadTrend, leadStatusDistribution, getStatusColor } from "@/data/mockData";
 import { Link } from "react-router-dom";
 
@@ -68,11 +68,20 @@ const Dashboard = () => {
           <h3 className="mb-4 font-semibold text-foreground">Sales Person Performance</h3>
           <ResponsiveContainer width="100%" height={230}>
             <BarChart data={salesPerformanceData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 91%)" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 91%)" vertical={false} />
+              <XAxis 
+                dataKey="name" 
+                tick={{ fontSize: 12 }} 
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis 
+                tick={{ fontSize: 12 }} 
+                axisLine={false}
+                tickLine={false}
+              />
               <Tooltip />
-              <Bar dataKey="leads" fill="hsl(210, 80%, 55%)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="leads" fill="hsl(210, 85%, 35%)" radius={[4, 4, 0, 0]} />
               <Bar dataKey="conversions" fill="hsl(0, 72%, 51%)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -82,13 +91,35 @@ const Dashboard = () => {
         <div className="rounded-xl border border-border bg-card p-4">
           <h3 className="mb-4 font-semibold text-foreground">Weekly Lead Trend</h3>
           <ResponsiveContainer width="100%" height={230}>
-            <LineChart data={weeklyLeadTrend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 91%)" />
-              <XAxis dataKey="day" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
+            <AreaChart data={weeklyLeadTrend}>
+              <defs>
+                <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(210, 85%, 40%)" stopOpacity={0.15}/>
+                  <stop offset="95%" stopColor="hsl(210, 85%, 40%)" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 91%)" vertical={false} />
+              <XAxis 
+                dataKey="day" 
+                tick={{ fontSize: 12, fill: "hsl(215, 16%, 47%)" }} 
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis 
+                tick={{ fontSize: 12, fill: "hsl(215, 16%, 47%)" }} 
+                axisLine={false}
+                tickLine={false}
+              />
               <Tooltip />
-              <Line type="monotone" dataKey="leads" stroke="hsl(210, 80%, 55%)" strokeWidth={2} dot={{ fill: "hsl(210, 80%, 55%)" }} />
-            </LineChart>
+              <Area
+                type="monotone"
+                dataKey="leads"
+                stroke="hsl(210, 85%, 40%)"
+                strokeWidth={3}
+                fill="url(#colorLeads)"
+                dot={false}
+              />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -120,24 +151,43 @@ const Dashboard = () => {
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-semibold text-foreground">Today's Follow-ups</h3>
-            <span className="rounded-full bg-status-converted px-2.5 py-0.5 text-xs font-medium text-primary-foreground">
+            <span className="text-sm font-medium text-red-600">
               {followUps.length} scheduled
             </span>
           </div>
           <div className="space-y-3">
-            {followUps.map((fu) => (
-              <div key={fu.id} className="flex items-start gap-3 rounded-lg p-2 hover:bg-accent">
-                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent">
-                  {fu.method === "Call" ? "📞" : fu.method === "Email" ? "📧" : fu.method === "WhatsApp" ? "💬" : "🏢"}
+            {followUps.map((fu) => {
+              const getMethodIcon = () => {
+                switch (fu.method) {
+                  case "Call":
+                    return { icon: Phone, bgColor: "bg-blue-50", iconColor: "text-blue-600" };
+                  case "Email":
+                    return { icon: Mail, bgColor: "bg-blue-50", iconColor: "text-blue-600" };
+                  case "WhatsApp":
+                    return { icon: Phone, bgColor: "bg-green-50", iconColor: "text-green-600" };
+                  case "Visit":
+                    return { icon: MapPin, bgColor: "bg-purple-50", iconColor: "text-purple-600" };
+                  default:
+                    return { icon: Phone, bgColor: "bg-gray-50", iconColor: "text-gray-600" };
+                }
+              };
+              
+              const { icon: IconComponent, bgColor, iconColor } = getMethodIcon();
+              
+              return (
+                <div key={fu.id} className="flex items-start gap-3 py-2">
+                  <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${bgColor}`}>
+                    <IconComponent className={`h-4 w-4 ${iconColor}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">{fu.company}</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">{fu.note}</p>
+                    <p className="mt-0.5 text-xs text-blue-600">By {fu.by} · {fu.method}</p>
+                  </div>
+                  <p className="shrink-0 text-sm text-muted-foreground">{fu.phone}</p>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">{fu.company}</p>
-                  <p className="text-xs text-muted-foreground">{fu.note}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">By {fu.by} · {fu.method}</p>
-                </div>
-                <p className="shrink-0 text-xs text-muted-foreground">{fu.phone}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

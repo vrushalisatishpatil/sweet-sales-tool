@@ -141,11 +141,11 @@ const Reports = () => {
             </PieChart>
           </ResponsiveContainer>
           {/* Legend */}
-          <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+          <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2">
             {leadStatusDistribution.map((item, i) => (
               <div key={i} className="flex items-center gap-1.5">
-                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                <span className="text-gray-600">{item.name} ({item.value})</span>
+                <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
+                <span className="text-xs text-gray-700">{item.name} ({item.value})</span>
               </div>
             ))}
           </div>

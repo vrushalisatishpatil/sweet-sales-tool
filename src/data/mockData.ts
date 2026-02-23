@@ -136,9 +136,7 @@ export const notes: Note[] = [
   { id: "6", leadId: "0", company: "", title: "New Pricing Strategy Ideas", content: "Consider tiered pricing: Basic (up to 10 users), Pro (up to 50 users), Enterprise (unlimited). Add annual discount of 15%. Bundle training with packages.", createdBy: "Priya Patel", createdAt: "2025-02-08", category: "General" },
 ];
 
-export const clients: Client[] = [
-  { id: "1", company: "Digital Dynamics", contact: "Rahul Verma", email: "rahul@digitald.com", phone: "9889012345", industry: "Technology", convertedDate: "2025-02-11", value: 480000 },
-];
+export const clients: Client[] = [];
 
 export const salesPerformanceData = [
   { name: "Rahul", leads: 45, conversions: 12 },
@@ -149,13 +147,13 @@ export const salesPerformanceData = [
 ];
 
 export const weeklyLeadTrend = [
-  { day: "Mon", leads: 5 },
+  { day: "Mon", leads: 4 },
   { day: "Tue", leads: 7 },
-  { day: "Wed", leads: 4 },
-  { day: "Thu", leads: 6 },
-  { day: "Fri", leads: 8 },
-  { day: "Sat", leads: 3 },
-  { day: "Sun", leads: 2 },
+  { day: "Wed", leads: 3 },
+  { day: "Thu", leads: 8 },
+  { day: "Fri", leads: 6 },
+  { day: "Sat", leads: 2 },
+  { day: "Sun", leads: 5 },
 ];
 
 export const leadStatusDistribution = [
