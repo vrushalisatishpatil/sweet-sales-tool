@@ -19,6 +19,23 @@ const Leads = () => {
   const [followUpType, setFollowUpType] = useState("");
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
 
+  // Add Lead Dialog States
+  const [isAddLeadDialogOpen, setIsAddLeadDialogOpen] = useState(false);
+  const [newLead, setNewLead] = useState({
+    date: "",
+    companyName: "",
+    contactPerson: "",
+    contactNumber: "",
+    emailId: "",
+    city: "",
+    state: "",
+    country: "",
+    inquirySource: "",
+    assignSalesPerson: "",
+    productInterested: "",
+    initialRemarks: ""
+  });
+
   const statuses: string[] = ["All", "New", "Contacted", "Follow-up", "Interested", "Converted", "Lost", "Pending"];
 
   const filtered = leadsData.filter((l) => {
@@ -52,6 +69,34 @@ const Leads = () => {
     // Add your follow-up save logic here
   };
 
+  const handleOpenAddLeadDialog = () => {
+    setIsAddLeadDialogOpen(true);
+  };
+
+  const handleCloseAddLeadDialog = () => {
+    setIsAddLeadDialogOpen(false);
+    setNewLead({
+      date: "",
+      companyName: "",
+      contactPerson: "",
+      contactNumber: "",
+      emailId: "",
+      city: "",
+      state: "",
+      country: "",
+      inquirySource: "",
+      assignSalesPerson: "",
+      productInterested: "",
+      initialRemarks: ""
+    });
+  };
+
+  const handleCreateLead = () => {
+    console.log("New lead created:", newLead);
+    // Add your lead creation logic here
+    handleCloseAddLeadDialog();
+  };
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
@@ -59,7 +104,10 @@ const Leads = () => {
           <h1 className="text-2xl font-bold text-foreground">Leads</h1>
           <p className="text-sm text-muted-foreground">Manage all your leads in one place</p>
         </div>
-        <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
+        <button 
+          onClick={handleOpenAddLeadDialog}
+          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+        >
           <Plus className="h-4 w-4" /> Add Lead
         </button>
       </div>
@@ -274,6 +322,178 @@ const Leads = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add New Lead Dialog */}
+      <Dialog open={isAddLeadDialogOpen} onOpenChange={setIsAddLeadDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Lead</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Date */}
+            <div>
+              <Label htmlFor="date">Date</Label>
+              <Input
+                id="date"
+                type="date"
+                value={newLead.date}
+                onChange={(e) => setNewLead({ ...newLead, date: e.target.value })}
+                placeholder="mm/dd/yyyy"
+                className="mt-1"
+              />
+            </div>
+
+            {/* Company Name and Contact Person */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="companyName">Company Name</Label>
+                <Input
+                  id="companyName"
+                  value={newLead.companyName}
+                  onChange={(e) => setNewLead({ ...newLead, companyName: e.target.value })}
+                  placeholder="Enter company name"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="contactPerson">Contact Person</Label>
+                <Input
+                  id="contactPerson"
+                  value={newLead.contactPerson}
+                  onChange={(e) => setNewLead({ ...newLead, contactPerson: e.target.value })}
+                  placeholder="Enter contact name"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            {/* Contact Number and Email ID */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="contactNumber">Contact Number</Label>
+                <Input
+                  id="contactNumber"
+                  value={newLead.contactNumber}
+                  onChange={(e) => setNewLead({ ...newLead, contactNumber: e.target.value })}
+                  placeholder="+91 XXXXX XXXXX"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="emailId">Email ID</Label>
+                <Input
+                  id="emailId"
+                  type="email"
+                  value={newLead.emailId}
+                  onChange={(e) => setNewLead({ ...newLead, emailId: e.target.value })}
+                  placeholder="email@company.com"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            {/* City, State, Country */}
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  value={newLead.city}
+                  onChange={(e) => setNewLead({ ...newLead, city: e.target.value })}
+                  placeholder="Enter city"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="state">State</Label>
+                <Input
+                  id="state"
+                  value={newLead.state}
+                  onChange={(e) => setNewLead({ ...newLead, state: e.target.value })}
+                  placeholder="Enter state"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="country">Country</Label>
+                <Input
+                  id="country"
+                  value={newLead.country}
+                  onChange={(e) => setNewLead({ ...newLead, country: e.target.value })}
+                  placeholder="Enter country"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            {/* Inquiry Source and Assign Sales Person */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="inquirySource">Inquiry Source</Label>
+                <Select value={newLead.inquirySource} onValueChange={(value) => setNewLead({ ...newLead, inquirySource: value })}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Website">Website</SelectItem>
+                    <SelectItem value="Reference">Reference</SelectItem>
+                    <SelectItem value="Call">Call</SelectItem>
+                    <SelectItem value="Email">Email</SelectItem>
+                    <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                    <SelectItem value="Visit">Visit</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="assignSalesPerson">Assign Sales Person</Label>
+                <Select value={newLead.assignSalesPerson} onValueChange={(value) => setNewLead({ ...newLead, assignSalesPerson: value })}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select person" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Rahul Sharma">Rahul Sharma</SelectItem>
+                    <SelectItem value="Priya Patel">Priya Patel</SelectItem>
+                    <SelectItem value="Amit Kumar">Amit Kumar</SelectItem>
+                    <SelectItem value="Sneha Gupta">Sneha Gupta</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Product / Service Interested In */}
+            <div>
+              <Label htmlFor="productInterested">Product / Service Interested In</Label>
+              <Input
+                id="productInterested"
+                value={newLead.productInterested}
+                onChange={(e) => setNewLead({ ...newLead, productInterested: e.target.value })}
+                placeholder="Enter product or service"
+                className="mt-1"
+              />
+            </div>
+
+            {/* Initial Remarks */}
+            <div>
+              <Label htmlFor="initialRemarks">Initial Remarks</Label>
+              <Textarea
+                id="initialRemarks"
+                value={newLead.initialRemarks}
+                onChange={(e) => setNewLead({ ...newLead, initialRemarks: e.target.value })}
+                placeholder="Enter initial remarks..."
+                className="mt-1 min-h-[80px] resize-none"
+              />
+            </div>
+
+            {/* Create Lead Button */}
+            <Button 
+              className="w-full bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleCreateLead}
+            >
+              Create Lead
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
