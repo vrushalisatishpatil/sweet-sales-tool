@@ -1,13 +1,31 @@
 import { salesTeam, salesPerformanceData, leadStatusDistribution } from "@/data/mockData";
 import { useState } from "react";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, Check, ChevronDown } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const Reports = () => {
   const [dateFrom, setDateFrom] = useState("02/01/2025");
   const [dateTo, setDateTo] = useState("02/13/2025");
   const [selectedPerson, setSelectedPerson] = useState("All Sales Persons");
   const [selectedStatus, setSelectedStatus] = useState("All Status");
+  const [isStatusOpen, setIsStatusOpen] = useState(false);
+
+  const statusOptions = [
+    "All Status",
+    "New",
+    "Contacted",
+    "Follow-up Required",
+    "Interested",
+    "Not Interested",
+    "Pending",
+    "Converted",
+    "Lost"
+  ];
 
   return (
     <div>
@@ -18,10 +36,10 @@ const Reports = () => {
           <p className="text-sm text-muted-foreground">Sales performance analytics & exports</p>
         </div>
         <div className="flex gap-2">
-          <button className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <button className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors">
             <Download className="h-4 w-4" /> Excel
           </button>
-          <button className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <button className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors">
             <FileText className="h-4 w-4" /> PDF
           </button>
         </div>
@@ -82,24 +100,35 @@ const Reports = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-2">Lead Status</label>
-            <select 
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white appearance-none"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
-                backgroundPosition: 'right 0.5rem center',
-                backgroundRepeat: 'no-repeat',
-                backgroundSize: '1.5em 1.5em',
-                paddingRight: '2.5rem'
-              }}
-            >
-              <option>All Status</option>
-              <option>New</option>
-              <option>Contacted</option>
-              <option>Interested</option>
-              <option>Converted</option>
-            </select>
+            <Popover open={isStatusOpen} onOpenChange={setIsStatusOpen}>
+              <PopoverTrigger asChild>
+                <button className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white text-left flex items-center justify-between hover:bg-gray-50">
+                  <span>{selectedStatus}</span>
+                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[240px] p-0" align="start">
+                <div className="py-1">
+                  {statusOptions.map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => {
+                        setSelectedStatus(status);
+                        setIsStatusOpen(false);
+                      }}
+                      className={`w-full px-3 py-2 text-sm text-left flex items-center gap-2 ${
+                        selectedStatus === status
+                          ? "bg-red-600 text-white"
+                          : "hover:bg-gray-100 text-gray-900"
+                      }`}
+                    >
+                      {selectedStatus === status && <Check className="h-4 w-4" />}
+                      <span className={selectedStatus === status ? "" : "ml-6"}>{status}</span>
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </div>
