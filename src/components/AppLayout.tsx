@@ -20,6 +20,7 @@ interface AppLayoutProps {
 const AppLayout = ({ children }: AppLayoutProps) => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState("");
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -78,6 +79,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
             <input
               type="text"
               placeholder="Search leads, contacts, companies..."
+              value={globalSearch}
+              onChange={(e) => setGlobalSearch(e.target.value)}
               className="w-64 border-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>

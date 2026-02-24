@@ -13,9 +13,36 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import type { Client } from "@/data/mockData";
 
+// Function to merge duplicate clients with same company, pincode, state, and mainArea
+const mergeDuplicateClients = (clients: Client[]): Client[] => {
+  const clientMap = new Map<string, Client>();
+  
+  clients.forEach((client) => {
+    // Create a unique key based on company, pincode, state, and mainArea
+    const key = `${client.company}|${client.pincode}|${client.state}|${client.mainArea}`;
+    
+    if (clientMap.has(key)) {
+      // Merge sub-areas
+      const existingClient = clientMap.get(key)!;
+      const mergedAreas = [...new Set([...existingClient.multipleAreas, ...client.multipleAreas])];
+      existingClient.multipleAreas = mergedAreas;
+    } else {
+      // Add new client
+      clientMap.set(key, { ...client });
+    }
+  });
+  
+  // Convert map back to array and reassign IDs
+  return Array.from(clientMap.values()).map((client, index) => ({
+    ...client,
+    id: String(index + 1),
+  }));
+};
+
 const Clients = () => {
   const [clientsData, setClientsData] = useState<Client[]>(initialClients);
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [partyName, setPartyName] = useState("");
   const [pincode, setPincode] = useState("");
   const [state, setState] = useState("");
@@ -43,7 +70,8 @@ const Clients = () => {
       multipleAreas: multipleAreas,
     };
     
-    setClientsData([...clientsData, newClient]);
+    const mergedClients = mergeDuplicateClients([...clientsData, newClient]);
+    setClientsData(mergedClients);
     
     // Reset form
     setIsAddClientOpen(false);
@@ -198,7 +226,9 @@ const Clients = () => {
           });
         }
         
-        setClientsData([...clientsData, ...importedClients]);
+        // Merge clients with same company, pincode, state, and mainArea
+        const mergedClients = mergeDuplicateClients([...clientsData, ...importedClients]);
+        setClientsData(mergedClients);
         alert(`Successfully imported ${importedClients.length} client(s)`);
         
         // Reset file input
@@ -278,6 +308,8 @@ const Clients = () => {
           <input 
             type="text" 
             placeholder="Search by name, state, area, or pincode..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full border-0 bg-transparent text-sm outline-none placeholder:text-gray-400" 
           />
         </div>
@@ -306,7 +338,16 @@ const Clients = () => {
               </tr>
             </thead>
             <tbody>
-              {clientsData.map((client) => (
+              {clientsData.filter((client) => {
+                const query = searchQuery.toLowerCase();
+                return (
+                  client.company.toLowerCase().includes(query) ||
+                  client.pincode.toLowerCase().includes(query) ||
+                  client.state.toLowerCase().includes(query) ||
+                  client.mainArea.toLowerCase().includes(query) ||
+                  client.multipleAreas.some(area => area.toLowerCase().includes(query))
+                );
+              }).map((client) => (
                 <tr key={client.id} className="border-b border-border last:border-0 hover:bg-accent/50">
                   <td className="px-4 py-3 text-sm font-medium text-foreground">{client.company}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{client.pincode}</td>

@@ -9,10 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 
 const AddNotes = () => {
-  const [notesData] = useState(initialNotes);
+  const [notesData, setNotesData] = useState(initialNotes);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
-  const [filterDropdown, setFilterDropdown] = useState("All Notes");
+  const [filterDropdown, setFilterDropdown] = useState("All To Do's");
   const [isAddNoteDialogOpen, setIsAddNoteDialogOpen] = useState(false);
   const [newNote, setNewNote] = useState({
     title: "",
@@ -39,12 +39,20 @@ const AddNotes = () => {
     handleCloseAddNoteDialog();
   };
 
+  const handleStatusChange = (noteId: string, newStatus: string) => {
+    setNotesData(
+      notesData.map((note) =>
+        note.id === noteId ? { ...note, category: newStatus } : note
+      )
+    );
+  };
+
   const handleFilterChange = (value: string) => {
     setFilterDropdown(value);
     // Map dropdown value to category
-    if (value === "All Notes") setCategoryFilter("All");
-    else if (value === "Lead Notes") setCategoryFilter("Lead");
-    else if (value === "General Notes") setCategoryFilter("General");
+    if (value === "All To Do's") setCategoryFilter("All");
+    else if (value === "Completed") setCategoryFilter("Completed");
+    else if (value === "Pending") setCategoryFilter("Pending");
   };
 
   // Filter notes
@@ -59,8 +67,8 @@ const AddNotes = () => {
 
   // Calculate counts
   const totalNotes = notesData.length;
-  const leadNotesCount = notesData.filter(n => n.category === "Lead").length;
-  const generalNotesCount = notesData.filter(n => n.category === "General").length;
+  const completedCount = notesData.filter(n => n.category === "Completed").length;
+  const pendingCount = notesData.filter(n => n.category === "Pending").length;
 
   return (
     <div>
@@ -94,26 +102,26 @@ const AddNotes = () => {
           <SelectTrigger className="w-[180px]">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4" />
-              <SelectValue placeholder="All Notes" />
+              <SelectValue placeholder="All To Do's" />
             </div>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="All Notes" className="data-[state=checked]:bg-red-600 data-[state=checked]:text-white">
+            <SelectItem value="All To Do's" className="data-[state=checked]:bg-red-600 data-[state=checked]:text-white">
               <div className="flex items-center gap-2">
-                {filterDropdown === "All Notes" && <Check className="h-4 w-4" />}
-                All Notes
+                {filterDropdown === "All To Do's" && <Check className="h-4 w-4" />}
+                All To Do's
               </div>
             </SelectItem>
-            <SelectItem value="Lead Notes" className="data-[state=checked]:bg-red-600 data-[state=checked]:text-white">
+            <SelectItem value="Completed" className="data-[state=checked]:bg-red-600 data-[state=checked]:text-white">
               <div className="flex items-center gap-2">
-                {filterDropdown === "Lead Notes" && <Check className="h-4 w-4" />}
-                Lead Notes
+                {filterDropdown === "Completed" && <Check className="h-4 w-4" />}
+                Completed
               </div>
             </SelectItem>
-            <SelectItem value="General Notes" className="data-[state=checked]:bg-red-600 data-[state=checked]:text-white">
+            <SelectItem value="Pending" className="data-[state=checked]:bg-red-600 data-[state=checked]:text-white">
               <div className="flex items-center gap-2">
-                {filterDropdown === "General Notes" && <Check className="h-4 w-4" />}
-                General Notes
+                {filterDropdown === "Pending" && <Check className="h-4 w-4" />}
+                Pending
               </div>
             </SelectItem>
           </SelectContent>
@@ -125,7 +133,7 @@ const AddNotes = () => {
         <button
           onClick={() => {
             setCategoryFilter("All");
-            setFilterDropdown("All Notes");
+            setFilterDropdown("All To Do's");
           }}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
             categoryFilter === "All"
@@ -137,39 +145,44 @@ const AddNotes = () => {
         </button>
         <button
           onClick={() => {
-            setCategoryFilter("Lead");
-            setFilterDropdown("Lead Notes");
+            setCategoryFilter("Completed");
+            setFilterDropdown("Completed");
           }}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            categoryFilter === "Lead"
+            categoryFilter === "Completed"
               ? "bg-red-600 text-white"
               : "bg-gray-200 text-gray-700 hover:bg-gray-300"
           }`}
         >
-          Lead Notes ({leadNotesCount})
+          Completed ({completedCount})
         </button>
         <button
           onClick={() => {
-            setCategoryFilter("General");
-            setFilterDropdown("General Notes");
+            setCategoryFilter("Pending");
+            setFilterDropdown("Pending");
           }}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            categoryFilter === "General"
+            categoryFilter === "Pending"
               ? "bg-red-600 text-white"
               : "bg-gray-200 text-gray-700 hover:bg-gray-300"
           }`}
         >
-          General ({generalNotesCount})
+          Pending ({pendingCount})
         </button>
       </div>
 
       {/* Notes Grid */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredNotes.map((note) => (
+        {filteredNotes.sort((a, b) => {
+          // Pending items first, then Completed
+          if (a.category === "Pending" && b.category === "Completed") return -1;
+          if (a.category === "Completed" && b.category === "Pending") return 1;
+          return 0;
+        }).map((note) => (
           <div 
             key={note.id} 
             className={`rounded-lg border ${
-              note.category === "Lead" ? "border-l-4 border-l-red-500" : "border-l-4 border-l-gray-400"
+              note.category === "Completed" ? "border-l-4 border-l-red-500" : "border-l-4 border-l-gray-300"
             } border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow relative`}
           >
             {/* Close button */}
@@ -177,19 +190,23 @@ const AddNotes = () => {
               <X className="h-4 w-4" />
             </button>
 
-            {/* Category Badge */}
-            <div className="mb-2 flex items-center gap-2">
-              {note.category === "Lead" ? (
-                <>
-                  <FileText className="h-4 w-4 text-red-600" />
-                  <span className="text-xs font-semibold text-red-600">Lead</span>
-                </>
-              ) : (
-                <>
-                  <FileText className="h-4 w-4 text-gray-500" />
-                  <span className="text-xs font-semibold text-gray-600">General</span>
-                </>
-              )}
+            {/* Status Dropdown */}
+            <div className="mb-3 flex items-center gap-2">
+              <Select value={note.category} onValueChange={(value) => handleStatusChange(note.id, value)}>
+                <SelectTrigger className={`h-7 px-2 text-xs font-medium w-fit ${
+                  note.category === "Pending" 
+                    ? "bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-150" 
+                    : note.category === "Completed"
+                    ? "bg-red-100 text-red-700 border-red-300 hover:bg-red-150"
+                    : "bg-gray-100 text-gray-700"
+                }`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Title */}
