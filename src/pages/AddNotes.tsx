@@ -131,7 +131,7 @@ const AddNotes = () => {
           }}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
             categoryFilter === "All"
-              ? "bg-blue-700 text-white"
+              ? "bg-red-600 text-white"
               : "bg-gray-200 text-gray-700 hover:bg-gray-300"
           }`}
         >
@@ -144,7 +144,7 @@ const AddNotes = () => {
           }}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
             categoryFilter === "Lead"
-              ? "bg-blue-700 text-white"
+              ? "bg-red-600 text-white"
               : "bg-gray-200 text-gray-700 hover:bg-gray-300"
           }`}
         >
@@ -157,7 +157,7 @@ const AddNotes = () => {
           }}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
             categoryFilter === "General"
-              ? "bg-blue-700 text-white"
+              ? "bg-red-600 text-white"
               : "bg-gray-200 text-gray-700 hover:bg-gray-300"
           }`}
         >

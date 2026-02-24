@@ -21,6 +21,13 @@ const AssignTasks = () => {
   const [priorityFilter, setPriorityFilter] = useState("All Priorities");
   const [isStatusOpen, setIsStatusOpen] = useState(false);
   const [isPriorityOpen, setIsPriorityOpen] = useState(false);
+  const [openTaskDropdown, setOpenTaskDropdown] = useState<string | null>(null);
+  const [taskStatuses, setTaskStatuses] = useState<Record<string, string>>(
+    initialTasks.reduce((acc, task) => ({
+      ...acc,
+      [task.id]: task.status
+    }), {})
+  );
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
@@ -31,6 +38,13 @@ const AssignTasks = () => {
   });
 
   const statusOptions = [
+    "Pending",
+    "In Progress",
+    "Completed",
+    "Overdue"
+  ];
+
+  const filterStatusOptions = [
     "All Status",
     "Pending",
     "In Progress",
@@ -45,6 +59,15 @@ const AssignTasks = () => {
     "High",
     "Urgent"
   ];
+
+  const handleTaskStatusChange = (taskId: string, newStatus: string) => {
+    setTaskStatuses(prev => ({
+      ...prev,
+      [taskId]: newStatus
+    }));
+    setOpenTaskDropdown(null);
+    handleStatusChange(taskId, newStatus);
+  };
 
   const handleOpenCreateTaskDialog = () => {
     setIsCreateTaskDialogOpen(true);
@@ -188,7 +211,7 @@ const AssignTasks = () => {
           </PopoverTrigger>
           <PopoverContent className="w-[180px] p-0" align="start">
             <div className="py-1">
-              {statusOptions.map((status) => (
+              {filterStatusOptions.map((status) => (
                 <button
                   key={status}
                   onClick={() => {
@@ -282,19 +305,32 @@ const AssignTasks = () => {
 
               {/* Status Dropdown */}
               <div className="shrink-0">
-                <Select 
-                  value={task.status} 
-                  onValueChange={(value) => handleStatusChange(task.id, value)}
-                >
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Pending">Pending</SelectItem>
-                    <SelectItem value="In Progress">In Progress</SelectItem>
-                    <SelectItem value="Completed">Completed</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Popover open={openTaskDropdown === task.id} onOpenChange={(open) => setOpenTaskDropdown(open ? task.id : null)}>
+                  <PopoverTrigger asChild>
+                    <button className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50">
+                      <span>{taskStatuses[task.id]}</span>
+                      <ChevronDown className="h-3 w-3 text-gray-500" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[160px] p-0" align="end">
+                    <div className="py-1">
+                      {statusOptions.map((status) => (
+                        <button
+                          key={status}
+                          onClick={() => handleTaskStatusChange(task.id, status)}
+                          className={`w-full px-3 py-2 text-sm text-left flex items-center gap-2 ${
+                            taskStatuses[task.id] === status
+                              ? "bg-red-600 text-white"
+                              : "hover:bg-gray-100 text-gray-900"
+                          }`}
+                        >
+                          {taskStatuses[task.id] === status && <Check className="h-4 w-4" />}
+                          <span className={taskStatuses[task.id] === status ? "" : "ml-6"}>{status}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </div>

@@ -83,6 +83,10 @@ export interface Client {
   industry: string;
   convertedDate: string;
   value: number;
+  pincode: string;
+  state: string;
+  mainArea: string;
+  multipleAreas: string[];
 }
 
 export const leads: Lead[] = [
@@ -137,7 +141,9 @@ export const notes: Note[] = [
   { id: "6", leadId: "0", company: "", title: "New Pricing Strategy Ideas", content: "Consider tiered pricing: Basic (up to 10 users), Pro (up to 50 users), Enterprise (unlimited). Add annual discount of 15%. Bundle training with packages.", createdBy: "Priya Patel", createdAt: "2025-02-08", category: "General" },
 ];
 
-export const clients: Client[] = [];
+export const clients: Client[] = [
+  { id: "1", company: "TechVista Solutions", contact: "Arjun Mehta", email: "arjun@techvista.com", phone: "9812345678", industry: "Software", convertedDate: "2025-01-15", value: 250000, pincode: "400001", state: "Maharashtra", mainArea: "Mumbai", multipleAreas: ["Bandra", "Worli"] },
+];
 
 export const salesPerformanceData = [
   { name: "Rahul", leads: 45, conversions: 12 },
