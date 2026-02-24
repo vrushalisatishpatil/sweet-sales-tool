@@ -17,8 +17,7 @@ const AddNotes = () => {
   const [newNote, setNewNote] = useState({
     title: "",
     content: "",
-    category: "",
-    linkToLead: ""
+    category: ""
   });
 
   const handleOpenAddNoteDialog = () => {
@@ -30,8 +29,7 @@ const AddNotes = () => {
     setNewNote({
       title: "",
       content: "",
-      category: "",
-      linkToLead: ""
+      category: ""
     });
   };
 
@@ -69,14 +67,14 @@ const AddNotes = () => {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Notes</h1>
-          <p className="text-sm text-muted-foreground">{totalNotes} notes</p>
+          <h1 className="text-2xl font-bold text-foreground">To Do's</h1>
+          <p className="text-sm text-muted-foreground">{totalNotes} to do's</p>
         </div>
         <button 
           onClick={handleOpenAddNoteDialog}
           className="flex items-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 px-4 py-2 text-sm font-medium text-white"
         >
-          <Plus className="h-4 w-4" /> Add Note
+          <Plus className="h-4 w-4" /> Add To Do's
         </button>
       </div>
 
@@ -262,37 +260,18 @@ const AddNotes = () => {
               />
             </div>
 
-            {/* Type and Link to Lead side by side */}
-            <div className="grid grid-cols-2 gap-4">
-              {/* Type */}
-              <div>
-                <Label htmlFor="category">Type</Label>
-                <Select value={newNote.category} onValueChange={(value) => setNewNote({ ...newNote, category: value })}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="General" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="General">General</SelectItem>
-                    <SelectItem value="Lead">Lead</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Link to Lead (Optional) */}
-              <div>
-                <Label htmlFor="linkToLead">Link to Lead (Optional)</Label>
-                <Select value={newNote.linkToLead} onValueChange={(value) => setNewNote({ ...newNote, linkToLead: value })}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select lead" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="TechVista Solutions">TechVista Solutions</SelectItem>
-                    <SelectItem value="Sunrise Healthcare">Sunrise Healthcare</SelectItem>
-                    <SelectItem value="FoodChain India">FoodChain India</SelectItem>
-                    <SelectItem value="Metro Builders">Metro Builders</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Type */}
+            <div>
+              <Label htmlFor="category">Type</Label>
+              <Select value={newNote.category} onValueChange={(value) => setNewNote({ ...newNote, category: value })}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Save Note Button */}

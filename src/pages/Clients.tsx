@@ -1,6 +1,7 @@
 import { clients as initialClients } from "@/data/mockData";
-import { Search, Upload, Plus, Users, X } from "lucide-react";
-import { useState } from "react";
+import { Search, Upload, Plus, Users, X, Download } from "lucide-react";
+import { useState, useRef } from "react";
+import * as XLSX from 'xlsx';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ const Clients = () => {
   const [multipleAreas, setMultipleAreas] = useState<string[]>([]);
   const [newAreaInput, setNewAreaInput] = useState("");
   const [areaType, setAreaType] = useState<"main" | "multiple">("main");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAddClient = () => {
     if (!partyName.trim()) return;
@@ -54,6 +56,172 @@ const Clients = () => {
     setAreaType("main");
   };
 
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleDownloadTemplate = () => {
+    // Create template with actual clients data from the software
+    const templateData = clientsData.map(client => ({
+      'Company': client.company,
+      'Pincode': client.pincode,
+      'State': client.state,
+      'Main Area': client.mainArea,
+      'Sub Area': client.multipleAreas.join(';'),
+    }));
+
+    // Add 3 empty rows for users to add more clients
+    const emptyRows = [
+      { 'Company': '', 'Pincode': '', 'State': '', 'Main Area': '', 'Sub Area': '' },
+      { 'Company': '', 'Pincode': '', 'State': '', 'Main Area': '', 'Sub Area': '' },
+      { 'Company': '', 'Pincode': '', 'State': '', 'Main Area': '', 'Sub Area': '' },
+    ];
+
+    const fullData = [...templateData, ...emptyRows];
+    const worksheet = XLSX.utils.json_to_sheet(fullData);
+    
+    // Set column widths for better readability
+    const columnWidths = [
+      { wch: 25 },  // Company
+      { wch: 12 },  // Pincode
+      { wch: 18 },  // State
+      { wch: 18 },  // Main Area
+      { wch: 30 },  // Sub Area
+    ];
+    worksheet['!cols'] = columnWidths;
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Clients');
+    XLSX.writeFile(workbook, 'clients-data.xlsx');
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    const isExcel = fileExtension === 'xlsx' || fileExtension === 'xls';
+    const isCSV = fileExtension === 'csv' || fileExtension === 'txt' || fileExtension === 'tsv';
+
+    if (!isExcel && !isCSV) {
+      alert('Please upload a valid CSV, TSV, XLS, or XLSX file');
+      return;
+    }
+
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        let importedClients: Client[] = [];
+
+        if (isExcel) {
+          // Parse Excel file
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const rows = XLSX.utils.sheet_to_json<{[key: string]: string}>(worksheet);
+          
+          if (rows.length === 0) {
+            alert('File is empty or has insufficient data');
+            return;
+          }
+
+          importedClients = rows.map((row, index) => {
+            // Get values from row - handles different column name variations
+            const company = row['Company'] || row['company'] || '';
+            const pincode = row['Pincode'] || row['pincode'] || '';
+            const state = row['State'] || row['state'] || '';
+            const mainArea = row['Main Area'] || row['main area'] || row['mainArea'] || '';
+            const multipleAreasStr = row['Sub Area'] || row['sub area'] || row['subArea'] || row['Multiple Areas'] || row['multiple areas'] || row['multipleAreas'] || '';
+
+            const multipleAreas = multipleAreasStr 
+              ? multipleAreasStr.split(';').map((a: string) => a.trim()).filter((a: string) => a)
+              : [];
+
+            return {
+              id: String(clientsData.length + index + 1),
+              company: company || 'Unnamed Company',
+              contact: company || 'Contact',
+              email: `contact@${(company || 'company').toLowerCase().replace(/\s/g, '')}.com`,
+              phone: '9999999999',
+              industry: 'General',
+              convertedDate: new Date().toISOString().split('T')[0],
+              value: 0,
+              pincode: pincode || '',
+              state: state || '',
+              mainArea: mainArea || '',
+              multipleAreas: multipleAreas,
+            };
+          });
+        } else {
+          // Parse CSV/TSV file
+          const text = e.target?.result as string;
+          const lines = text.split('\n').filter(line => line.trim());
+          
+          if (lines.length < 2) {
+            alert('File is empty or has insufficient data');
+            return;
+          }
+
+          // Parse CSV/TSV (detect delimiter)
+          const firstLine = lines[0];
+          const delimiter = firstLine.includes('\t') ? '\t' : ',';
+          
+          // Skip header row
+          const dataLines = lines.slice(1);
+          
+          importedClients = dataLines.map((line, index) => {
+            const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
+            
+            // Expected columns: Company, Pincode, State, Main Area, Sub Area
+            const [company, pincode, state, mainArea, multipleAreasStr] = values;
+            
+            const multipleAreas = multipleAreasStr 
+              ? multipleAreasStr.split(';').map(a => a.trim()).filter(a => a)
+              : [];
+            
+            return {
+              id: String(clientsData.length + index + 1),
+              company: company || 'Unnamed Company',
+              contact: company || 'Contact',
+              email: `contact@${(company || 'company').toLowerCase().replace(/\s/g, '')}.com`,
+              phone: '9999999999',
+              industry: 'General',
+              convertedDate: new Date().toISOString().split('T')[0],
+              value: 0,
+              pincode: pincode || '',
+              state: state || '',
+              mainArea: mainArea || '',
+              multipleAreas: multipleAreas,
+            };
+          });
+        }
+        
+        setClientsData([...clientsData, ...importedClients]);
+        alert(`Successfully imported ${importedClients.length} client(s)`);
+        
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      } catch (error) {
+        alert('Error parsing file. Please ensure the format is correct.');
+        console.error(error);
+      }
+    };
+    
+    reader.onerror = () => {
+      alert('Error reading file');
+    };
+    
+    if (isExcel) {
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.readAsText(file);
+    }
+  };
+
   return (
     <div>
       {/* Header */}
@@ -63,7 +231,25 @@ const Clients = () => {
           <p className="text-sm text-muted-foreground">Manage your client directory ({clientsData.length} total)</p>
         </div>
         <div className="flex gap-2">
-          <button className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.txt,.tsv,.xlsx,.xls"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          <button 
+            onClick={handleDownloadTemplate}
+            className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            title="Download CSV template"
+          >
+            <Download className="h-4 w-4" /> Template
+          </button>
+          <button 
+            onClick={handleImportClick}
+            className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            title="Import clients from CSV or Excel file"
+          >
             <Upload className="h-4 w-4" /> Import Excel
           </button>
           <button 
@@ -116,7 +302,7 @@ const Clients = () => {
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Pincode</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">State</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Main Area</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Multiple Areas</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Sub Area</th>
               </tr>
             </thead>
             <tbody>
@@ -196,9 +382,9 @@ const Clients = () => {
                 />
               </div>
 
-              {/* Multiple Area Option */}
+              {/* Sub Area Option */}
               <div>
-                <p className="text-xs font-medium text-gray-600 mb-2">Multiple Area</p>
+                <p className="text-xs font-medium text-gray-600 mb-2">Sub Area</p>
                 <div className="space-y-2">
                   <div className="flex gap-2">
                     <Input

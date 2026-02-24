@@ -7,7 +7,7 @@ const navItems = [
   { path: "/leads", label: "Leads", icon: Users },
   { path: "/follow-ups", label: "Follow-ups", icon: PhoneCall },
   { path: "/assign-tasks", label: "Assign Tasks", icon: ClipboardList },
-  { path: "/add-notes", label: "Add Notes", icon: StickyNote },
+  { path: "/add-notes", label: "To Do's", icon: StickyNote },
   { path: "/sales-team", label: "Sales Team", icon: UserCheck },
   { path: "/reports", label: "Reports", icon: BarChart3 },
   { path: "/clients", label: "Clients", icon: Building2 },
