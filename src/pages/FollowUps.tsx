@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { followUps as initialFollowUps, type FollowUp } from "@/data/mockData";
-import { Phone, Mail, MessageCircle, MapPin, ArrowRight, Calendar, Edit, History } from "lucide-react";
+import { Phone, Mail, MessageCircle, MapPin, ArrowRight, Calendar, Edit, History, Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const methodIcons: Record<string, React.ReactNode> = {
   Call: <Phone className="h-5 w-5" />,
@@ -19,6 +20,27 @@ const FollowUps = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedFollowUp, setSelectedFollowUp] = useState<FollowUp | null>(null);
   const [isHistoryView, setIsHistoryView] = useState(false);
+  const [isStatusOpen, setIsStatusOpen] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<"New" | "Contacted" | "Follow-up" | "Interested" | "Pending">("Pending");
+
+  const statusOptions = ["New", "Contacted", "Follow-up", "Interested", "Pending"];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "New":
+        return "bg-blue-500 text-white border-blue-500";
+      case "Contacted":
+        return "bg-gray-600 text-white border-gray-600";
+      case "Follow-up":
+        return "bg-yellow-500 text-white border-yellow-500";
+      case "Interested":
+        return "bg-purple-600 text-white border-purple-600";
+      case "Pending":
+        return "bg-orange-500 text-white border-orange-500";
+      default:
+        return "bg-gray-400 text-white border-gray-400";
+    }
+  };
 
   // Filter today's follow-ups (you can adjust the logic as needed)
   const todaysFollowUps = followUpData.filter((f) => !f.completed);
@@ -26,6 +48,7 @@ const FollowUps = () => {
   const handleFollowUpClick = (followUp: FollowUp) => {
     setSelectedFollowUp(followUp);
     setIsHistoryView(false);
+    setSelectedStatus(followUp.status);
     setIsDialogOpen(true);
   };
 
@@ -118,6 +141,11 @@ const FollowUps = () => {
                   <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
                   WhatsApp
                 </Button>
+                <div 
+                  className={`px-2.5 py-0.5 text-xs rounded-full border-0 font-medium h-auto w-fit inline-block ${getStatusColor(fu.status)}`}
+                >
+                  {fu.status}
+                </div>
               </div>
             </div>
           </div>
@@ -186,6 +214,47 @@ const FollowUps = () => {
                   />
                 </div>
 
+                {/* Status */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Status</Label>
+                  <Popover open={isStatusOpen} onOpenChange={setIsStatusOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-between border-2 border-gray-300 text-left font-normal hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors"
+                      >
+                        <span>{selectedStatus}</span>
+                        <ChevronDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0" align="start">
+                      <div className="space-y-1 p-2">
+                        {statusOptions.map((status) => (
+                          <button
+                            key={status}
+                            className={`w-full px-3 py-2 text-sm text-left rounded-md transition-colors ${
+                              selectedStatus === status
+                                ? "bg-red-600 text-white flex items-center gap-2"
+                                : "hover:bg-gray-100"
+                            }`}
+                            onClick={() => {
+                              setSelectedStatus(status);
+                              setIsStatusOpen(false);
+                            }}
+                          >
+                            {selectedStatus === status && <Check className="h-4 w-4" />}
+                            {selectedStatus === status ? (
+                              <span className={selectedStatus === status ? "ml-6" : ""}>{status}</span>
+                            ) : (
+                              <span className="ml-6">{status}</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
                 {/* Follow-up By and Follow-up Date */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -212,17 +281,31 @@ const FollowUps = () => {
                   </div>
                 </div>
 
-                {/* Next Follow-up */}
-                <div className="space-y-2">
-                  <Label htmlFor="nextFollowUp" className="text-sm font-medium">
-                    Next Follow-up
-                  </Label>
-                  <Input
-                    id="nextFollowUp"
-                    defaultValue={selectedFollowUp?.nextAction}
-                    placeholder="Enter next action"
-                    className="rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 border-2 border-gray-300 focus:border-red-500"
-                  />
+                {/* Next Follow-up and Next Follow-up Date */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="nextFollowUp" className="text-sm font-medium">
+                      Next Follow-up
+                    </Label>
+                    <Input
+                      id="nextFollowUp"
+                      defaultValue={selectedFollowUp?.nextAction}
+                      placeholder="Enter next action"
+                      className="rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 border-2 border-gray-300 focus:border-red-500"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="nextFollowUpDate" className="text-sm font-medium">
+                      Next Follow-up Date
+                    </Label>
+                    <Input
+                      id="nextFollowUpDate"
+                      type="date"
+                      placeholder="Select date"
+                      className="rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 border-2 border-gray-300 focus:border-red-500"
+                    />
+                  </div>
                 </div>
               </>
             )}
@@ -249,9 +332,15 @@ const FollowUps = () => {
                           <p className="mt-1 text-sm text-gray-900">2025-02-10</p>
                         </div>
                       </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700">Next Follow-up</Label>
-                        <p className="mt-1 text-sm text-gray-900">Schedule product demo</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700">Next Follow-up</Label>
+                          <p className="mt-1 text-sm text-gray-900">Schedule product demo</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700">Next Follow-up Date</Label>
+                          <p className="mt-1 text-sm text-gray-900">2025-02-15</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -274,9 +363,15 @@ const FollowUps = () => {
                           <p className="mt-1 text-sm text-gray-900">2025-02-05</p>
                         </div>
                       </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700">Next Follow-up</Label>
-                        <p className="mt-1 text-sm text-gray-900">Send detailed proposal</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700">Next Follow-up</Label>
+                          <p className="mt-1 text-sm text-gray-900">Send detailed proposal</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700">Next Follow-up Date</Label>
+                          <p className="mt-1 text-sm text-gray-900">2025-02-10</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -299,9 +394,15 @@ const FollowUps = () => {
                           <p className="mt-1 text-sm text-gray-900">2025-02-01</p>
                         </div>
                       </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700">Next Follow-up</Label>
-                        <p className="mt-1 text-sm text-gray-900">Initial meeting call</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700">Next Follow-up</Label>
+                          <p className="mt-1 text-sm text-gray-900">Initial meeting call</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700">Next Follow-up Date</Label>
+                          <p className="mt-1 text-sm text-gray-900">2025-02-05</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -324,9 +425,15 @@ const FollowUps = () => {
                           <p className="mt-1 text-sm text-gray-900">2025-01-28</p>
                         </div>
                       </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700">Next Follow-up</Label>
-                        <p className="mt-1 text-sm text-gray-900">Follow up on proposal</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700">Next Follow-up</Label>
+                          <p className="mt-1 text-sm text-gray-900">Follow up on proposal</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700">Next Follow-up Date</Label>
+                          <p className="mt-1 text-sm text-gray-900">2025-02-01</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -349,9 +456,15 @@ const FollowUps = () => {
                           <p className="mt-1 text-sm text-gray-900">2025-01-25</p>
                         </div>
                       </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700">Next Follow-up</Label>
-                        <p className="mt-1 text-sm text-gray-900">Prepare revised quotation</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700">Next Follow-up</Label>
+                          <p className="mt-1 text-sm text-gray-900">Prepare revised quotation</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700">Next Follow-up Date</Label>
+                          <p className="mt-1 text-sm text-gray-900">2025-01-28</p>
+                        </div>
                       </div>
                     </div>
                   </div>
