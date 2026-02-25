@@ -36,7 +36,19 @@ const Leads = () => {
     initialRemarks: ""
   });
 
-  const statuses: string[] = ["All", "New", "Contacted", "Follow-up", "Interested", "Converted", "Lost", "Pending"];
+  const statuses: string[] = [
+    "All",
+    "New",
+    "Connected",
+    "Interested",
+    "Not Interested",
+    "Detail Share",
+    "Re-connected",
+    "Negotiation",
+    "Converted",
+    "Irrelevant",
+    "Lost",
+  ];
 
   const filtered = leadsData.filter((l) => {
     const matchSearch = l.company.toLowerCase().includes(search.toLowerCase()) || l.contact.toLowerCase().includes(search.toLowerCase());
@@ -268,12 +280,15 @@ const Leads = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="New">New</SelectItem>
-                    <SelectItem value="Contacted">Contacted</SelectItem>
-                    <SelectItem value="Follow-up">Follow-up Required</SelectItem>
+                    <SelectItem value="Connected">Connected</SelectItem>
                     <SelectItem value="Interested">Interested</SelectItem>
+                    <SelectItem value="Not Interested">Not Interested</SelectItem>
+                    <SelectItem value="Detail Share">Detail Share</SelectItem>
+                    <SelectItem value="Re-connected">Re-connected</SelectItem>
+                    <SelectItem value="Negotiation">Negotiation</SelectItem>
                     <SelectItem value="Converted">Converted</SelectItem>
+                    <SelectItem value="Irrelevant">Irrelevant</SelectItem>
                     <SelectItem value="Lost">Lost</SelectItem>
-                    <SelectItem value="Pending">Pending</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -437,12 +452,16 @@ const Leads = () => {
                     <SelectValue placeholder="Select source" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Website">Website</SelectItem>
-                    <SelectItem value="Reference">Reference</SelectItem>
-                    <SelectItem value="Call">Call</SelectItem>
-                    <SelectItem value="Email">Email</SelectItem>
-                    <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                    <SelectItem value="Visit">Visit</SelectItem>
+                    <SelectItem value="INDIAMART">INDIAMART</SelectItem>
+                    <SelectItem value="TRADEINDIA">TRADEINDIA</SelectItem>
+                    <SelectItem value="DIIPL">DIIPL</SelectItem>
+                    <SelectItem value="WEB SITE">WEB SITE</SelectItem>
+                    <SelectItem value="EMAIL">EMAIL</SelectItem>
+                    <SelectItem value="WHATS APP">WHATS APP</SelectItem>
+                    <SelectItem value="CALL">CALL</SelectItem>
+                    <SelectItem value="SOCIAL MEDIA">SOCIAL MEDIA</SelectItem>
+                    <SelectItem value="CAMPAIGN">CAMPAIGN</SelectItem>
+                    <SelectItem value="OTHER">OTHER</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

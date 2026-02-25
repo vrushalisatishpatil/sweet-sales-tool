@@ -21,22 +21,54 @@ const FollowUps = () => {
   const [selectedFollowUp, setSelectedFollowUp] = useState<FollowUp | null>(null);
   const [isHistoryView, setIsHistoryView] = useState(false);
   const [isStatusOpen, setIsStatusOpen] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<"New" | "Contacted" | "Follow-up" | "Interested" | "Pending">("Pending");
+  const [selectedStatus, setSelectedStatus] = useState<
+    | "New"
+    | "Connected"
+    | "Interested"
+    | "Not Interested"
+    | "Detail Share"
+    | "Re-connected"
+    | "Negotiation"
+    | "Converted"
+    | "Irrelevant"
+    | "Lost"
+  >("New");
 
-  const statusOptions = ["New", "Contacted", "Follow-up", "Interested", "Pending"];
+  const statusOptions = [
+    "New",
+    "Connected",
+    "Interested",
+    "Not Interested",
+    "Detail Share",
+    "Re-connected",
+    "Negotiation",
+    "Converted",
+    "Irrelevant",
+    "Lost",
+  ];
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "New":
         return "bg-blue-500 text-white border-blue-500";
-      case "Contacted":
+      case "Connected":
         return "bg-gray-600 text-white border-gray-600";
-      case "Follow-up":
+      case "Not Interested":
+        return "bg-gray-400 text-white border-gray-400";
+      case "Detail Share":
         return "bg-yellow-500 text-white border-yellow-500";
+      case "Re-connected":
+        return "bg-sky-500 text-white border-sky-500";
+      case "Negotiation":
+        return "bg-orange-500 text-white border-orange-500";
       case "Interested":
         return "bg-purple-600 text-white border-purple-600";
-      case "Pending":
-        return "bg-orange-500 text-white border-orange-500";
+      case "Converted":
+        return "bg-green-600 text-white border-green-600";
+      case "Irrelevant":
+        return "bg-gray-500 text-white border-gray-500";
+      case "Lost":
+        return "bg-red-600 text-white border-red-600";
       default:
         return "bg-gray-400 text-white border-gray-400";
     }

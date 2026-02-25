@@ -19,12 +19,14 @@ const Reports = () => {
   const statusOptions = [
     "All Status",
     "New",
-    "Contacted",
-    "Follow-up Required",
+    "Connected",
     "Interested",
     "Not Interested",
-    "Pending",
+    "Detail Share",
+    "Re-connected",
+    "Negotiation",
     "Converted",
+    "Irrelevant",
     "Lost"
   ];
 

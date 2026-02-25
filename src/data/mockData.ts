@@ -1,4 +1,14 @@
-export type LeadStatus = "New" | "Contacted" | "Follow-up" | "Interested" | "Converted" | "Lost" | "Pending";
+export type LeadStatus =
+  | "New"
+  | "Connected"
+  | "Interested"
+  | "Not Interested"
+  | "Detail Share"
+  | "Re-connected"
+  | "Negotiation"
+  | "Converted"
+  | "Irrelevant"
+  | "Lost";
 
 export interface Lead {
   id: string;
@@ -32,7 +42,7 @@ export interface FollowUp {
   completed: boolean;
   nextAction: string;
   nextFollowUpDate: string;
-  status: "New" | "Contacted" | "Follow-up" | "Interested" | "Pending";
+  status: LeadStatus;
 }
 
 export interface SalesPerson {
@@ -91,26 +101,26 @@ export interface Client {
 
 export const leads: Lead[] = [
   { id: "1", company: "TechVista Solutions", contact: "Arjun Mehta", source: "Website", status: "New", phone: "9812345678", email: "arjun@techvista.com", assignedTo: "Rahul Sharma", createdAt: "10/02/2025", value: 250000, city: "Mumbai", state: "Maharashtra", country: "India", leadId: "LD-2025-001", inquiryDate: "2025-02-10", productInterested: "CRM Software", remarks: "Looking for enterprise CRM solution" },
-  { id: "2", company: "GreenLeaf Industries", contact: "Kavita Nair", source: "Reference", status: "Contacted", phone: "9823456789", email: "kavita@greenleaf.com", assignedTo: "Priya Patel", createdAt: "09/02/2025", value: 180000, city: "Pune", state: "Maharashtra", country: "India", leadId: "LD-2025-002", inquiryDate: "2025-02-09", productInterested: "ERP System", remarks: "Interested in manufacturing ERP solution" },
-  { id: "3", company: "Metro Builders", contact: "Rajesh Iyer", source: "Call", status: "Follow-up", phone: "9834567890", email: "rajesh@metrobuilders.com", assignedTo: "Amit Kumar", createdAt: "08/02/2025", value: 420000, city: "Chennai", state: "Tamil Nadu", country: "India", leadId: "LD-2025-003", inquiryDate: "2025-02-08", productInterested: "Project Management Tool", remarks: "Requires project management and tracking system" },
+  { id: "2", company: "GreenLeaf Industries", contact: "Kavita Nair", source: "Reference", status: "Connected", phone: "9823456789", email: "kavita@greenleaf.com", assignedTo: "Priya Patel", createdAt: "09/02/2025", value: 180000, city: "Pune", state: "Maharashtra", country: "India", leadId: "LD-2025-002", inquiryDate: "2025-02-09", productInterested: "ERP System", remarks: "Interested in manufacturing ERP solution" },
+  { id: "3", company: "Metro Builders", contact: "Rajesh Iyer", source: "Call", status: "Re-connected", phone: "9834567890", email: "rajesh@metrobuilders.com", assignedTo: "Amit Kumar", createdAt: "08/02/2025", value: 420000, city: "Chennai", state: "Tamil Nadu", country: "India", leadId: "LD-2025-003", inquiryDate: "2025-02-08", productInterested: "Project Management Tool", remarks: "Requires project management and tracking system" },
   { id: "4", company: "Sunrise Healthcare", contact: "Dr. Meena Shah", source: "WhatsApp", status: "Interested", phone: "9845678901", email: "meena@sunrisehc.com", assignedTo: "Sneha Gupta", createdAt: "07/02/2025", value: 350000, city: "Ahmedabad", state: "Gujarat", country: "India", leadId: "LD-2025-004", inquiryDate: "2025-02-07", productInterested: "Hospital Management System", remarks: "Looking for comprehensive HMS with billing" },
-  { id: "5", company: "FastTrack Logistics", contact: "Nikhil Joshi", source: "Email", status: "Pending", phone: "9856789012", email: "nikhil@fasttrack.com", assignedTo: "Rahul Sharma", createdAt: "06/02/2025", value: 150000, city: "Delhi", state: "Delhi", country: "India", leadId: "LD-2025-005", inquiryDate: "2025-02-06", productInterested: "Fleet Management", remarks: "Need fleet tracking and management solution" },
-  { id: "6", company: "FoodChain India", contact: "Sanjay Gupta", source: "Visit", status: "Follow-up", phone: "9801234567", email: "sanjay@foodchain.com", assignedTo: "Rahul Sharma", createdAt: "05/02/2025", value: 280000, city: "Bangalore", state: "Karnataka", country: "India", leadId: "LD-2025-006", inquiryDate: "2025-02-05", productInterested: "POS System", remarks: "Wants integrated POS for multiple outlets" },
-  { id: "7", company: "AquaPure Water", contact: "Deepa Menon", source: "Email", status: "New", phone: "9812340000", email: "deepa@aquapure.com", assignedTo: "Priya Patel", createdAt: "04/02/2025", value: 120000, city: "Kochi", state: "Kerala", country: "India", leadId: "LD-2025-007", inquiryDate: "2025-02-04", productInterested: "IoT Dashboard", remarks: "IoT monitoring solution for water quality" },
-  { id: "8", company: "SkyNet Telecom", contact: "Vikram Singh", source: "Website", status: "Contacted", phone: "9867890123", email: "vikram@skynet.com", assignedTo: "Amit Kumar", createdAt: "03/02/2025", value: 550000, city: "Hyderabad", state: "Telangana", country: "India", leadId: "LD-2025-008", inquiryDate: "2025-02-03", productInterested: "Billing Software", remarks: "Telecom billing and customer management" },
+  { id: "5", company: "FastTrack Logistics", contact: "Nikhil Joshi", source: "Email", status: "Detail Share", phone: "9856789012", email: "nikhil@fasttrack.com", assignedTo: "Rahul Sharma", createdAt: "06/02/2025", value: 150000, city: "Delhi", state: "Delhi", country: "India", leadId: "LD-2025-005", inquiryDate: "2025-02-06", productInterested: "Fleet Management", remarks: "Need fleet tracking and management solution" },
+  { id: "6", company: "FoodChain India", contact: "Sanjay Gupta", source: "Visit", status: "Negotiation", phone: "9801234567", email: "sanjay@foodchain.com", assignedTo: "Rahul Sharma", createdAt: "05/02/2025", value: 280000, city: "Bangalore", state: "Karnataka", country: "India", leadId: "LD-2025-006", inquiryDate: "2025-02-05", productInterested: "POS System", remarks: "Wants integrated POS for multiple outlets" },
+  { id: "7", company: "AquaPure Water", contact: "Deepa Menon", source: "Email", status: "Not Interested", phone: "9812340000", email: "deepa@aquapure.com", assignedTo: "Priya Patel", createdAt: "04/02/2025", value: 120000, city: "Kochi", state: "Kerala", country: "India", leadId: "LD-2025-007", inquiryDate: "2025-02-04", productInterested: "IoT Dashboard", remarks: "IoT monitoring solution for water quality" },
+  { id: "8", company: "SkyNet Telecom", contact: "Vikram Singh", source: "Website", status: "Connected", phone: "9867890123", email: "vikram@skynet.com", assignedTo: "Amit Kumar", createdAt: "03/02/2025", value: 550000, city: "Hyderabad", state: "Telangana", country: "India", leadId: "LD-2025-008", inquiryDate: "2025-02-03", productInterested: "Billing Software", remarks: "Telecom billing and customer management" },
   { id: "9", company: "Elegant Interiors", contact: "Priya Desai", source: "Reference", status: "Interested", phone: "9878901234", email: "priya@elegant.com", assignedTo: "Sneha Gupta", createdAt: "02/02/2025", value: 200000, city: "Surat", state: "Gujarat", country: "India", leadId: "LD-2025-009", inquiryDate: "2025-02-02", productInterested: "Design Software", remarks: "3D design and visualization tools needed" },
   { id: "10", company: "Digital Dynamics", contact: "Rahul Verma", source: "Call", status: "Converted", phone: "9889012345", email: "rahul@digitald.com", assignedTo: "Rahul Sharma", createdAt: "01/02/2025", value: 480000, city: "Kolkata", state: "West Bengal", country: "India", leadId: "LD-2025-010", inquiryDate: "2025-02-01", productInterested: "Marketing Automation", remarks: "Digital marketing automation platform" },
   { id: "11", company: "NatureFirst Organics", contact: "Anita Rao", source: "WhatsApp", status: "Lost", phone: "9890123456", email: "anita@naturefirst.com", assignedTo: "Priya Patel", createdAt: "31/01/2025", value: 90000, city: "Nagpur", state: "Maharashtra", country: "India", leadId: "LD-2025-011", inquiryDate: "2025-01-31", productInterested: "Inventory Management", remarks: "Organic product inventory tracking" },
-  { id: "12", company: "BuildRight Construction", contact: "Manoj Patil", source: "Visit", status: "Follow-up", phone: "9801234500", email: "manoj@buildright.com", assignedTo: "Amit Kumar", createdAt: "30/01/2025", value: 670000, city: "Nashik", state: "Maharashtra", country: "India", leadId: "LD-2025-012", inquiryDate: "2025-01-30", productInterested: "Construction ERP", remarks: "End-to-end construction management system" },
+  { id: "12", company: "BuildRight Construction", contact: "Manoj Patil", source: "Visit", status: "Irrelevant", phone: "9801234500", email: "manoj@buildright.com", assignedTo: "Amit Kumar", createdAt: "30/01/2025", value: 670000, city: "Nashik", state: "Maharashtra", country: "India", leadId: "LD-2025-012", inquiryDate: "2025-01-30", productInterested: "Construction ERP", remarks: "End-to-end construction management system" },
 ];
 
 export const followUps: FollowUp[] = [
   { id: "1", leadId: "3", company: "Metro Builders", note: "Discussed project management requirements in detail", by: "Amit Kumar", method: "Call", phone: "9834567890", date: "2025-02-13", completed: false, nextAction: "Schedule product demo", nextFollowUpDate: "2025-02-15", status: "New" },
-  { id: "2", leadId: "4", company: "Sunrise Healthcare", note: "Sent pricing proposal for HMS software", by: "Sneha Gupta", method: "Email", phone: "9845678901", date: "2025-02-13", completed: false, nextAction: "Follow up on pricing approval", nextFollowUpDate: "2025-02-16", status: "Contacted" },
-  { id: "3", leadId: "5", company: "FastTrack Logistics", note: "Checked on budget approval status", by: "Rahul Sharma", method: "WhatsApp", phone: "9856789012", date: "2025-02-13", completed: false, nextAction: "Send detailed quotation", nextFollowUpDate: "2025-02-17", status: "Follow-up" },
+  { id: "2", leadId: "4", company: "Sunrise Healthcare", note: "Sent pricing proposal for HMS software", by: "Sneha Gupta", method: "Email", phone: "9845678901", date: "2025-02-13", completed: false, nextAction: "Follow up on pricing approval", nextFollowUpDate: "2025-02-16", status: "Connected" },
+  { id: "3", leadId: "5", company: "FastTrack Logistics", note: "Checked on budget approval status", by: "Rahul Sharma", method: "WhatsApp", phone: "9856789012", date: "2025-02-13", completed: false, nextAction: "Send detailed quotation", nextFollowUpDate: "2025-02-17", status: "Detail Share" },
   { id: "4", leadId: "6", company: "FoodChain India", note: "Visited their main outlet, assessed POS needs", by: "Rahul Sharma", method: "Visit", phone: "9801234567", date: "2025-02-13", completed: false, nextAction: "Prepare customized proposal", nextFollowUpDate: "2025-02-18", status: "Interested" },
-  { id: "5", leadId: "1", company: "TechVista Solutions", note: "Initial discovery call, needs identified", by: "Rahul Sharma", method: "Call", phone: "9812345678", date: "2025-02-13", completed: false, nextAction: "Share case studies", nextFollowUpDate: "2025-02-19", status: "Pending" },
-  { id: "6", leadId: "7", company: "AquaPure Water", note: "Shared IoT dashboard demo link", by: "Priya Patel", method: "Email", phone: "9812340000", date: "2025-02-13", completed: false, nextAction: "Arrange technical discussion", nextFollowUpDate: "2025-02-20", status: "Follow-up" },
+  { id: "5", leadId: "1", company: "TechVista Solutions", note: "Initial discovery call, needs identified", by: "Rahul Sharma", method: "Call", phone: "9812345678", date: "2025-02-13", completed: false, nextAction: "Share case studies", nextFollowUpDate: "2025-02-19", status: "Negotiation" },
+  { id: "6", leadId: "7", company: "AquaPure Water", note: "Shared IoT dashboard demo link", by: "Priya Patel", method: "Email", phone: "9812340000", date: "2025-02-13", completed: false, nextAction: "Arrange technical discussion", nextFollowUpDate: "2025-02-20", status: "Re-connected" },
 ];
 
 export const salesTeam: SalesPerson[] = [
@@ -164,26 +174,30 @@ export const weeklyLeadTrend = [
 ];
 
 export const leadStatusDistribution = [
-  { name: "New", value: 2, color: "hsl(210, 100%, 60%)" },
-  { name: "Contacted", value: 2, color: "hsl(210, 50%, 45%)" },
-  { name: "Follow-up Required", value: 2, color: "hsl(45, 93%, 58%)" },
+  { name: "New", value: 1, color: "hsl(210, 100%, 60%)" },
+  { name: "Connected", value: 2, color: "hsl(210, 50%, 45%)" },
   { name: "Interested", value: 2, color: "hsl(270, 60%, 55%)" },
   { name: "Not Interested", value: 1, color: "hsl(0, 0%, 60%)" },
-  { name: "Pending", value: 1, color: "hsl(30, 100%, 50%)" },
+  { name: "Detail Share", value: 1, color: "hsl(45, 93%, 58%)" },
+  { name: "Re-connected", value: 1, color: "hsl(200, 80%, 55%)" },
+  { name: "Negotiation", value: 1, color: "hsl(30, 100%, 50%)" },
   { name: "Converted", value: 1, color: "hsl(142, 70%, 45%)" },
+  { name: "Irrelevant", value: 1, color: "hsl(0, 0%, 45%)" },
   { name: "Lost", value: 1, color: "hsl(0, 72%, 51%)" },
 ];
 
 export const getStatusColor = (status: string): string => {
   const colors: Record<string, string> = {
     "New": "bg-status-new text-primary-foreground",
-    "Contacted": "bg-status-contacted text-primary-foreground",
-    "Follow-up": "bg-status-followup text-foreground",
+    "Connected": "bg-status-contacted text-primary-foreground",
     "Interested": "bg-status-interested text-primary-foreground",
+    "Not Interested": "bg-muted text-muted-foreground",
+    "Detail Share": "bg-status-followup text-foreground",
+    "Re-connected": "bg-status-contacted text-primary-foreground",
+    "Negotiation": "bg-status-pending text-primary-foreground",
     "Converted": "bg-status-converted text-primary-foreground",
+    "Irrelevant": "bg-muted text-muted-foreground",
     "Lost": "bg-status-lost text-primary-foreground",
-    "Pending": "bg-status-pending text-primary-foreground",
-    "Follow-up Required": "bg-status-followup text-foreground",
   };
   return colors[status] || "bg-muted text-muted-foreground";
 };

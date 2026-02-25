@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 const statCards = [
   { title: "Total Leads", value: leads.length, change: "↑ 12% this week", positive: true, icon: Target, iconColor: "text-primary" },
   { title: "Conversions", value: leads.filter(l => l.status === "Converted").length, change: "↑ 8.3% rate", positive: true, icon: CheckCircle, iconColor: "text-status-converted" },
-  { title: "Today's Follow-ups", value: followUps.length, change: "↓ 3 pending", positive: false, icon: Clock, iconColor: "text-status-pending" },
+  { title: "Today's Follow-ups", value: followUps.length, change: "↓ 3 scheduled", positive: false, icon: Clock, iconColor: "text-status-followup" },
   { title: "Active Sales Team", value: salesTeam.length, change: "", positive: true, icon: Users, iconColor: "text-status-new" },
 ];
 
@@ -140,7 +140,7 @@ const Dashboard = () => {
                   <p className="text-xs text-muted-foreground">{lead.contact} · {lead.source}</p>
                 </div>
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(lead.status)}`}>
-                  {lead.status === "Follow-up" ? "Follow-up Required" : lead.status}
+                  {lead.status}
                 </span>
               </div>
             ))}
