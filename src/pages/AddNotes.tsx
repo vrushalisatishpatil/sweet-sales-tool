@@ -52,6 +52,7 @@ const AddNotes = () => {
     // Map dropdown value to category
     if (value === "All To Do's") setCategoryFilter("All");
     else if (value === "Completed") setCategoryFilter("Completed");
+    else if (value === "In Progress") setCategoryFilter("In Progress");
     else if (value === "Pending") setCategoryFilter("Pending");
   };
 
@@ -68,6 +69,7 @@ const AddNotes = () => {
   // Calculate counts
   const totalNotes = notesData.length;
   const completedCount = notesData.filter(n => n.category === "Completed").length;
+  const inProgressCount = notesData.filter(n => n.category === "In Progress").length;
   const pendingCount = notesData.filter(n => n.category === "Pending").length;
 
   return (
@@ -118,6 +120,12 @@ const AddNotes = () => {
                 Completed
               </div>
             </SelectItem>
+            <SelectItem value="In Progress" className="data-[state=checked]:bg-red-600 data-[state=checked]:text-white">
+              <div className="flex items-center gap-2">
+                {filterDropdown === "In Progress" && <Check className="h-4 w-4" />}
+                In Progress
+              </div>
+            </SelectItem>
             <SelectItem value="Pending" className="data-[state=checked]:bg-red-600 data-[state=checked]:text-white">
               <div className="flex items-center gap-2">
                 {filterDropdown === "Pending" && <Check className="h-4 w-4" />}
@@ -158,6 +166,19 @@ const AddNotes = () => {
         </button>
         <button
           onClick={() => {
+            setCategoryFilter("In Progress");
+            setFilterDropdown("In Progress");
+          }}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            categoryFilter === "In Progress"
+              ? "bg-red-600 text-white"
+              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+          }`}
+        >
+          In Progress ({inProgressCount})
+        </button>
+        <button
+          onClick={() => {
             setCategoryFilter("Pending");
             setFilterDropdown("Pending");
           }}
@@ -174,15 +195,18 @@ const AddNotes = () => {
       {/* Notes Grid */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredNotes.sort((a, b) => {
-          // Pending items first, then Completed
-          if (a.category === "Pending" && b.category === "Completed") return -1;
-          if (a.category === "Completed" && b.category === "Pending") return 1;
-          return 0;
+          // Pending items first, then In Progress, then Completed
+          const order: Record<string, number> = { "Pending": 0, "In Progress": 1, "Completed": 2 };
+          return (order[a.category] ?? 99) - (order[b.category] ?? 99);
         }).map((note) => (
           <div 
             key={note.id} 
             className={`rounded-lg border ${
-              note.category === "Completed" ? "border-l-4 border-l-red-500" : "border-l-4 border-l-gray-300"
+              note.category === "Completed"
+                ? "border-l-4 border-l-red-500"
+                : note.category === "In Progress"
+                ? "border-l-4 border-l-blue-400"
+                : "border-l-4 border-l-gray-300"
             } border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow relative`}
           >
             {/* Close button */}
@@ -198,12 +222,15 @@ const AddNotes = () => {
                     ? "bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-150" 
                     : note.category === "Completed"
                     ? "bg-red-100 text-red-700 border-red-300 hover:bg-red-150"
+                    : note.category === "In Progress"
+                    ? "bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-150"
                     : "bg-gray-100 text-gray-700"
                 }`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="In Progress">In Progress</SelectItem>
                   <SelectItem value="Completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
@@ -286,6 +313,7 @@ const AddNotes = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="In Progress">In Progress</SelectItem>
                   <SelectItem value="Pending">Pending</SelectItem>
                 </SelectContent>
               </Select>

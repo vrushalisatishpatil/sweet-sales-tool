@@ -81,7 +81,7 @@ export interface Note {
   content: string;
   createdBy: string;
   createdAt: string;
-  category: "Completed" | "Pending";
+  category: "Completed" | "Pending" | "In Progress";
 }
 
 export interface Client {
