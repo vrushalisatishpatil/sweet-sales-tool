@@ -1,7 +1,8 @@
-import { tasks as initialTasks, getPriorityColor, getTaskStatusColor, salesTeam, leads } from "@/data/mockData";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Search, ListTodo, Clock, AlertTriangle, CheckCircle2, User, Calendar, Building2, Filter, Check, ChevronDown } from "lucide-react";
 import { useUser } from "@/context/UserContext";
+import { supabase } from "@/lib/supabase";
+import type { TaskPriority, TaskStatus } from "@/types/database.types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,9 +15,22 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
+interface Task {
+  id: string;
+  taskId: string;
+  title: string;
+  description: string;
+  assignedTo: string;
+  priority: TaskPriority;
+  status: TaskStatus;
+  dueDate: string;
+}
+
 const AssignTasks = () => {
   const { userRole } = useUser();
-  const [tasksData] = useState(initialTasks);
+  const [tasksData, setTasksData] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
@@ -24,34 +38,26 @@ const AssignTasks = () => {
   const [isStatusOpen, setIsStatusOpen] = useState(false);
   const [isPriorityOpen, setIsPriorityOpen] = useState(false);
   const [openTaskDropdown, setOpenTaskDropdown] = useState<string | null>(null);
-  const [taskStatuses, setTaskStatuses] = useState<Record<string, string>>(
-    initialTasks.reduce((acc, task) => ({
-      ...acc,
-      [task.id]: task.status
-    }), {})
-  );
+  const [taskStatuses, setTaskStatuses] = useState<Record<string, string>>({});
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
     assignTo: "",
-    linkToLead: "",
     priority: "",
     dueDate: ""
   });
 
-  const statusOptions = [
+  const statusOptions: TaskStatus[] = [
     "Pending",
     "In Progress",
-    "Completed",
-    "Overdue"
+    "Completed"
   ];
 
   const filterStatusOptions = [
     "All Status",
     "Pending",
     "In Progress",
-    "Completed",
-    "Overdue"
+    "Completed"
   ];
 
   const priorityOptions = [
@@ -62,13 +68,78 @@ const AssignTasks = () => {
     "Urgent"
   ];
 
-  const handleTaskStatusChange = (taskId: string, newStatus: string) => {
-    setTaskStatuses(prev => ({
-      ...prev,
-      [taskId]: newStatus
-    }));
-    setOpenTaskDropdown(null);
-    handleStatusChange(taskId, newStatus);
+  // Fetch tasks from Supabase
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { data, error: fetchError } = await supabase
+        .from('tasks')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
+
+      // Transform Supabase data to match component interface
+      const transformedTasks: Task[] = (data || []).map((dbTask) => ({
+        id: dbTask.id,
+        taskId: dbTask.task_id,
+        title: dbTask.title,
+        description: dbTask.description || '',
+        assignedTo: dbTask.assigned_to || '',
+        priority: dbTask.priority as TaskPriority,
+        status: dbTask.status as TaskStatus,
+        dueDate: dbTask.due_date || '',
+      }));
+
+      setTasksData(transformedTasks);
+      
+      // Initialize task statuses
+      const statuses = transformedTasks.reduce((acc, task) => ({
+        ...acc,
+        [task.id]: task.status
+      }), {});
+      setTaskStatuses(statuses);
+    } catch (err) {
+      console.error('Error fetching tasks:', err);
+      setError('Failed to load tasks. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateTaskId = () => {
+    const timestamp = Date.now().toString().slice(-6);
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `TSK-${timestamp}${random}`;
+  };
+
+  const handleTaskStatusChange = async (taskId: string, newStatus: string) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('tasks')
+        .update({ status: newStatus as TaskStatus })
+        .eq('id', taskId);
+
+      if (updateError) throw updateError;
+
+      setTaskStatuses(prev => ({
+        ...prev,
+        [taskId]: newStatus
+      }));
+      setOpenTaskDropdown(null);
+      
+      // Refresh tasks list
+      await fetchTasks();
+    } catch (err) {
+      console.error('Error updating task status:', err);
+      alert('Failed to update task status. Please try again.');
+    }
   };
 
   const handleOpenCreateTaskDialog = () => {
@@ -81,21 +152,51 @@ const AssignTasks = () => {
       title: "",
       description: "",
       assignTo: "",
-      linkToLead: "",
       priority: "",
       dueDate: ""
     });
   };
 
-  const handleCreateTask = () => {
-    console.log("New task created:", newTask);
-    // Add your task creation logic here
-    handleCloseCreateTaskDialog();
-  };
+  const handleCreateTask = async () => {
+    try {
+      if (!newTask.title || !newTask.assignTo || !newTask.priority) {
+        alert('Please fill in required fields: Title, Assign To, and Priority');
+        return;
+      }
 
-  const handleStatusChange = (taskId: string, newStatus: string) => {
-    console.log(`Task ${taskId} status changed to ${newStatus}`);
-    // Add your status update logic here
+      const taskId = generateTaskId();
+      
+      const insertData = {
+        task_id: taskId,
+        title: newTask.title,
+        description: newTask.description || null,
+        assigned_to: newTask.assignTo,
+        priority: newTask.priority,
+        status: 'Pending' as TaskStatus,
+        due_date: newTask.dueDate || null,
+      };
+
+      console.log('Inserting task data:', insertData);
+
+      const { data, error: insertError } = await supabase
+        .from('tasks')
+        .insert([insertData]);
+
+      if (insertError) {
+        console.error('Supabase insert error:', insertError);
+        throw insertError;
+      }
+
+      // Refresh tasks list
+      await fetchTasks();
+      
+      alert('Task created successfully!');
+      handleCloseCreateTaskDialog();
+    } catch (err: any) {
+      console.error('Error creating task:', err);
+      const errorMessage = err?.message || err?.error_description || JSON.stringify(err);
+      alert(`Failed to create task: ${errorMessage}`);
+    }
   };
 
   // Filter tasks
@@ -142,6 +243,28 @@ const AssignTasks = () => {
         return "bg-gray-100 text-gray-700 border-gray-200";
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading tasks...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={fetchTasks}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -300,10 +423,6 @@ const AssignTasks = () => {
                     <Calendar className="h-4 w-4" />
                     <span>Due: {task.dueDate}</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Building2 className="h-4 w-4" />
-                    <span>{task.leadCompany}</span>
-                  </div>
                 </div>
               </div>
 
@@ -343,7 +462,18 @@ const AssignTasks = () => {
 
       {filteredTasks.length === 0 && (
         <div className="rounded-xl border border-border bg-card p-12 text-center">
-          <p className="text-muted-foreground">No tasks found</p>
+          <ListTodo className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">No tasks found</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            {tasksData.length === 0 
+              ? "Get started by creating your first task" 
+              : "Try adjusting your search or filters"}
+          </p>
+          {userRole === "admin" && tasksData.length === 0 && (
+            <Button onClick={handleOpenCreateTaskDialog} className="bg-red-600 hover:bg-red-700">
+              <Plus className="h-4 w-4 mr-2" /> Create Your First Task
+            </Button>
+          )}
         </div>
       )}
 
@@ -378,38 +508,20 @@ const AssignTasks = () => {
               />
             </div>
 
-            {/* Assign To and Link to Lead */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="assignTo">Assign To</Label>
-                <Select value={newTask.assignTo} onValueChange={(value) => setNewTask({ ...newTask, assignTo: value })}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select person" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {salesTeam.map((person) => (
-                      <SelectItem key={person.id} value={person.name}>
-                        {person.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="linkToLead">Link to Lead (Optional)</Label>
-                <Select value={newTask.linkToLead} onValueChange={(value) => setNewTask({ ...newTask, linkToLead: value })}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select lead" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {leads.map((lead) => (
-                      <SelectItem key={lead.id} value={lead.company}>
-                        {lead.company}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Assign To */}
+            <div>
+              <Label htmlFor="assignTo">Assign To</Label>
+              <Select value={newTask.assignTo} onValueChange={(value) => setNewTask({ ...newTask, assignTo: value })}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select person" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Rahul Sharma">Rahul Sharma</SelectItem>
+                  <SelectItem value="Priya Patel">Priya Patel</SelectItem>
+                  <SelectItem value="Amit Kumar">Amit Kumar</SelectItem>
+                  <SelectItem value="Sneha Gupta">Sneha Gupta</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Priority and Due Date */}

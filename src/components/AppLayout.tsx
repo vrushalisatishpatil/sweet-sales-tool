@@ -1,8 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, PhoneCall, ClipboardList, StickyNote, UserCheck, BarChart3, Building2, ChevronLeft, Search, Bell, LogOut } from "lucide-react";
-import { useState } from "react";
+import { LayoutDashboard, Users, PhoneCall, ClipboardList, StickyNote, UserCheck, BarChart3, Building2, ChevronLeft, Search, Bell, LogOut, Eye, EyeOff } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import { UserContext } from "@/context/UserContext";
+import { supabase } from "@/lib/supabase";
+import { Input } from "@/components/ui/input";
+import type { Session } from "@supabase/supabase-js";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -30,46 +33,166 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [globalSearch, setGlobalSearch] = useState("");
-  const [isSignedIn, setIsSignedIn] = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
   const [userRole, setUserRole] = useState<"admin" | "salesperson">("salesperson");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginRole, setLoginRole] = useState<"admin" | "salesperson">("admin");
+  const adminEmail = "care@waxitylubricant.com";
 
-  const handleSignOut = () => {
-    setIsSignedIn(false);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthLoading(false);
+      if (data.session?.user?.email === adminEmail) {
+        setUserRole("admin");
+      } else if (data.session) {
+        setUserRole("salesperson");
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      setAuthLoading(false);
+      if (newSession?.user?.email === adminEmail) {
+        setUserRole("admin");
+      } else if (newSession) {
+        setUserRole("salesperson");
+      } else {
+        setUserRole("salesperson");
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
     setShowProfileMenu(false);
   };
 
-  const handleLogin = (role: "admin" | "salesperson") => {
-    setUserRole(role);
-    setIsSignedIn(true);
+  const handleLogin = async () => {
+    setAuthError(null);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: loginEmail,
+      password: loginPassword,
+    });
+    if (error) {
+      setAuthError(error.message);
+    }
   };
 
-  if (!isSignedIn) {
+  if (authLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-white">
-        <div className="w-full max-w-md space-y-8 rounded-xl border border-border bg-card p-8 shadow-lg">
-          <div className="text-center space-y-2">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-lg font-bold text-primary-foreground mx-auto">
-              W
-            </div>
-            <h1 className="text-2xl font-bold text-foreground">WAXITY LEADS</h1>
-            <p className="text-sm text-muted-foreground">Lead Management System</p>
-          </div>
+        <div className="text-sm text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
 
-          <div className="space-y-3">
-            <Button
-              onClick={() => handleLogin("admin")}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold h-10"
-            >
-              Sign in as Admin
-            </Button>
-            <Button
-              onClick={() => handleLogin("salesperson")}
-              variant="outline"
-              className="w-full font-semibold h-10"
-            >
-              Sign in as Sales Person
-            </Button>
+  if (!session) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-red-50 via-white to-orange-50 px-4">
+        <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-border bg-white shadow-2xl">
+          <div className="grid grid-cols-1 md:grid-cols-2">
+            <div className="hidden md:flex flex-col justify-between bg-red-600 p-8 text-white">
+              <div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white text-lg font-bold text-red-600">
+                  W
+                </div>
+                <h1 className="mt-6 text-3xl font-bold tracking-tight font-serif">Waxity Leads</h1>
+                <p className="mt-2 text-sm text-red-100">Lead Management System</p>
+              </div>
+              <div className="text-sm text-red-100">
+                Manage leads, tasks, and follow-ups in one place.
+              </div>
+            </div>
+
+            <div className="p-8 md:p-10">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-foreground font-serif">Sign in</h2>
+                <p className="text-sm text-muted-foreground">Use your admin credentials</p>
+              </div>
+
+              <div className="mb-5 grid grid-cols-2 gap-2">
+                <Button
+                  variant={loginRole === "admin" ? "default" : "outline"}
+                  className={loginRole === "admin" ? "bg-red-600 hover:bg-red-700 text-white" : ""}
+                  onClick={() => {
+                    setLoginRole("admin");
+                  }}
+                >
+                  Admin
+                </Button>
+                <Button
+                  variant={loginRole === "salesperson" ? "default" : "outline"}
+                  className={loginRole === "salesperson" ? "bg-red-600 hover:bg-red-700 text-white" : ""}
+                  onClick={() => {
+                    setLoginRole("salesperson");
+                  }}
+                >
+                  Sales Person
+                </Button>
+              </div>
+
+              {authError && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {authError}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-foreground" htmlFor="email">
+                    Email
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    className="mt-1"
+                    placeholder="care@waxitylubricant.com"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground" htmlFor="password">
+                    Password
+                  </label>
+                  <div className="relative mt-1">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      className="pr-10"
+                      placeholder="Your password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <Button
+                  onClick={handleLogin}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold h-10"
+                >
+                  Sign In
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

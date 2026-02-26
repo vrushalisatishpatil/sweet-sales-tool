@@ -1,5 +1,7 @@
-import { useRef, useState, type ChangeEvent } from "react";
-import { leads as initialLeads, getStatusColor, type Lead, type LeadStatus } from "@/data/mockData";
+import { useRef, useState, useEffect, type ChangeEvent } from "react";
+import { useUser } from "@/context/UserContext";
+import { supabase } from "@/lib/supabase";
+import type { LeadStatus } from "@/types/database.types";
 import { Plus, Search, Filter, X, User, Phone, Mail, Upload, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -9,8 +11,47 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+interface Lead {
+  id: string;
+  leadId: string;
+  company: string;
+  contact: string;
+  phone: string;
+  email: string;
+  city: string;
+  state: string;
+  country: string;
+  source: string;
+  productInterested: string;
+  assignedTo: string;
+  status: LeadStatus;
+  value: number;
+  remarks: string;
+  inquiryDate: string;
+  createdAt: string;
+}
+
+const getStatusColor = (status: LeadStatus) => {
+  const colors: Record<LeadStatus, string> = {
+    New: "bg-blue-100 text-blue-700",
+    Connected: "bg-green-100 text-green-700",
+    Interested: "bg-purple-100 text-purple-700",
+    "Not Interested": "bg-red-100 text-red-700",
+    "Detail Share": "bg-yellow-100 text-yellow-700",
+    "Re-connected": "bg-teal-100 text-teal-700",
+    Negotiation: "bg-orange-100 text-orange-700",
+    Converted: "bg-emerald-100 text-emerald-700",
+    Irrelevant: "bg-gray-100 text-gray-700",
+    Lost: "bg-rose-100 text-rose-700",
+  };
+  return colors[status] || "bg-gray-100 text-gray-700";
+};
+
 const Leads = () => {
-  const [leadsData] = useState<Lead[]>(initialLeads);
+  const { userRole } = useUser();
+  const [leadsData, setLeadsData] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("All");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -52,6 +93,59 @@ const Leads = () => {
     "Lost",
   ];
 
+  // Fetch leads from Supabase
+  useEffect(() => {
+    fetchLeads();
+  }, []);
+
+  const fetchLeads = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { data, error: fetchError } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
+
+      // Transform Supabase data to match component interface
+      const transformedLeads: Lead[] = (data || []).map((dbLead) => ({
+        id: dbLead.id,
+        leadId: dbLead.lead_id,
+        company: dbLead.company,
+        contact: dbLead.contact,
+        phone: dbLead.phone || '',
+        email: dbLead.email || '',
+        city: dbLead.city || '',
+        state: dbLead.state || '',
+        country: dbLead.country || '',
+        source: dbLead.source || '',
+        productInterested: dbLead.product_interested || '',
+        assignedTo: dbLead.assigned_to || '',
+        status: dbLead.status as LeadStatus,
+        value: dbLead.value || 0,
+        remarks: dbLead.remarks || '',
+        inquiryDate: dbLead.inquiry_date || '',
+        createdAt: new Date(dbLead.created_at).toISOString().split('T')[0],
+      }));
+
+      setLeadsData(transformedLeads);
+    } catch (err) {
+      console.error('Error fetching leads:', err);
+      setError('Failed to load leads. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateLeadId = () => {
+    const timestamp = Date.now().toString().slice(-6);
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `LD${timestamp}${random}`;
+  };
+
   const filtered = leadsData.filter((l) => {
     const matchSearch = l.company.toLowerCase().includes(search.toLowerCase()) || l.contact.toLowerCase().includes(search.toLowerCase());
     const matchStatus = filterStatus === "All" || l.status === filterStatus;
@@ -72,15 +166,39 @@ const Leads = () => {
     setSelectedLead(null);
   };
 
-  const handleSaveFollowUp = () => {
-    console.log("Follow-up saved:", {
-      leadId: selectedLead?.id,
-      notes: followUpNotes,
-      type: followUpType,
-      date: nextFollowUpDate,
-      status: updateStatus
-    });
-    // Add your follow-up save logic here
+  const handleSaveFollowUp = async () => {
+    try {
+      if (!selectedLead) return;
+
+      // Update lead status if provided
+      if (updateStatus) {
+        const { error: updateError } = await supabase
+          .from('leads')
+          .update({ status: updateStatus as LeadStatus })
+          .eq('id', selectedLead.id);
+
+        if (updateError) throw updateError;
+      }
+
+      // Here you would also save the follow-up notes to a follow_ups table
+      // For now, we'll just update the lead status
+      console.log("Follow-up saved:", {
+        leadId: selectedLead.id,
+        notes: followUpNotes,
+        type: followUpType,
+        date: nextFollowUpDate,
+        status: updateStatus
+      });
+
+      // Refresh leads list
+      await fetchLeads();
+      
+      alert('Follow-up saved successfully!');
+      handleCloseDialog();
+    } catch (err) {
+      console.error('Error saving follow-up:', err);
+      alert('Failed to save follow-up. Please try again.');
+    }
   };
 
   const handleOpenAddLeadDialog = () => {
@@ -105,10 +223,49 @@ const Leads = () => {
     });
   };
 
-  const handleCreateLead = () => {
-    console.log("New lead created:", newLead);
-    // Add your lead creation logic here
-    handleCloseAddLeadDialog();
+  const handleCreateLead = async () => {
+    try {
+      if (!newLead.companyName || !newLead.contactPerson) {
+        alert('Please fill in required fields: Company Name and Contact Person');
+        return;
+      }
+
+      const leadId = generateLeadId();
+      
+      const { data, error: insertError } = await supabase
+        .from('leads')
+        .insert([
+          {
+            lead_id: leadId,
+            company: newLead.companyName,
+            contact: newLead.contactPerson,
+            phone: newLead.contactNumber,
+            email: newLead.emailId,
+            city: newLead.city,
+            state: newLead.state,
+            country: newLead.country,
+            source: newLead.inquirySource,
+            product_interested: newLead.productInterested,
+            assigned_to: newLead.assignSalesPerson,
+            status: 'New',
+            remarks: newLead.initialRemarks,
+            inquiry_date: newLead.date || new Date().toISOString().split('T')[0],
+            value: 0,
+          }
+        ])
+        .select();
+
+      if (insertError) throw insertError;
+
+      // Refresh leads list
+      await fetchLeads();
+      
+      alert('Lead created successfully!');
+      handleCloseAddLeadDialog();
+    } catch (err) {
+      console.error('Error creating lead:', err);
+      alert('Failed to create lead. Please try again.');
+    }
   };
 
   const handleDownloadTemplate = () => {
@@ -156,11 +313,138 @@ const Leads = () => {
     XLSX.writeFile(workbook, "leads-data.xlsx");
   };
 
-  const handleLeadsFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleLeadsFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    console.log("Leads import file selected:", file.name);
+
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Read file
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = e.target?.result;
+          const workbook = XLSX.read(data, { type: 'binary' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+          if (jsonData.length === 0) {
+            setError('The file is empty. Please check your file.');
+            setLoading(false);
+            return;
+          }
+
+          const normalizeDate = (value: unknown) => {
+            if (value instanceof Date && !isNaN(value.getTime())) {
+              return value.toISOString().split('T')[0];
+            }
+
+            if (typeof value === 'number' || (typeof value === 'string' && value.trim() !== '' && !isNaN(Number(value)))) {
+              const numeric = typeof value === 'number' ? value : Number(value);
+              const parsed = XLSX.SSF.parse_date_code(numeric);
+              if (parsed && parsed.y && parsed.m && parsed.d) {
+                const date = new Date(parsed.y, parsed.m - 1, parsed.d);
+                return date.toISOString().split('T')[0];
+              }
+            }
+
+            if (typeof value === 'string' && value.trim() !== '') {
+              const parsed = new Date(value);
+              if (!isNaN(parsed.getTime())) {
+                return parsed.toISOString().split('T')[0];
+              }
+            }
+
+            return new Date().toISOString().split('T')[0];
+          };
+
+          // Map imported data to Supabase schema
+          const leadsToInsert = jsonData.map((row) => {
+            const generatePersonId = () => {
+              const timestamp = Date.now().toString().slice(-6);
+              const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+              return `LD${timestamp}${random}`;
+            };
+
+            return {
+              lead_id: generatePersonId(),
+              company: row['Company Name'] || row['Company'] || row['company'] || row['Organization'] || '',
+              contact: row['Contact Person'] || row['Contact'] || row['contact'] || row['contactPerson'] || '',
+              phone: row['Contact Number'] || row['Phone'] || row['phone'] || row['Mobile'] || row['mobile'] || '',
+              email: row['Email'] || row['email'] || row['Email ID'] || row['emailId'] || '',
+              city: row['City'] || row['city'] || '',
+              state: row['State'] || row['state'] || '',
+              country: row['Country'] || row['country'] || '',
+              source: row['Inquiry Source'] || row['Source'] || row['source'] || row['inquirySource'] || '',
+              product_interested: row['Product Interested'] || row['productInterested'] || row['product_interested'] || '',
+              assigned_to: row['Assigned To'] || row['assignedTo'] || row['assigned_to'] || row['Assign Sales Person'] || '',
+              status: (row['Status'] || row['status'] || 'New') as LeadStatus,
+              value: Number(row['Value'] || row['value'] || 0) || 0,
+              remarks: row['Initial Remarks'] || row['Remarks'] || row['remarks'] || row['initialRemarks'] || '',
+              inquiry_date: normalizeDate(row['Inquiry Date'] || row['inquiryDate'] || row['inquiry_date']),
+            };
+          });
+
+          // Insert all leads to Supabase
+          const { error: insertError } = await supabase
+            .from('leads')
+            .insert(leadsToInsert);
+
+          if (insertError) {
+            console.error('Supabase insert error:', insertError);
+            setError(`Failed to import leads: ${insertError.message}`);
+            setLoading(false);
+            return;
+          }
+
+          // Refresh leads list to show imported data
+          await fetchLeads();
+          setError(null);
+          alert(`Successfully imported ${leadsToInsert.length} leads!`);
+        } catch (parseError) {
+          console.error('Error parsing file:', parseError);
+          setError(`Error parsing file: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+          setLoading(false);
+        }
+      };
+      
+      reader.onerror = () => {
+        setError('Failed to read file');
+        setLoading(false);
+      };
+
+      reader.readAsBinaryString(file);
+    } catch (err) {
+      console.error('Error importing leads:', err);
+      setError(`Error importing file: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setLoading(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading leads...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={fetchLeads}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -191,12 +475,14 @@ const Leads = () => {
           >
             <Upload className="h-4 w-4" /> Import
           </button>
-          <button 
-            onClick={handleOpenAddLeadDialog}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-          >
-            <Plus className="h-4 w-4" /> Add Lead
-          </button>
+          {userRole === "admin" && (
+            <button 
+              onClick={handleOpenAddLeadDialog}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+            >
+              <Plus className="h-4 w-4" /> Add Lead
+            </button>
+          )}
         </div>
       </div>
 
@@ -217,47 +503,64 @@ const Leads = () => {
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border bg-accent">
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">DATE</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">COMPANY</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">CONTACT PERSON / NO.</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">CITY</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">STATE</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">COUNTRY</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">ASSIGNED TO</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">STATUS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((lead) => (
-              <tr 
-                key={lead.id} 
-                onClick={() => handleRowClick(lead)}
-                className="border-b border-border last:border-0 hover:bg-accent/50 cursor-pointer"
-              >
-                <td className="px-4 py-3 text-sm text-muted-foreground">{lead.createdAt}</td>
-                <td className="px-4 py-3 text-sm font-medium text-foreground">{lead.company}</td>
-                <td className="px-4 py-3">
-                  <p className="text-sm text-foreground">{lead.contact}</p>
-                  <p className="text-xs text-muted-foreground">{lead.phone}</p>
-                </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{lead.city}</td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{lead.state}</td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{lead.country}</td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{lead.assignedTo}</td>
-                <td className="px-4 py-3">
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(lead.status)}`}>
-                    {lead.status}
-                  </span>
-                </td>
+      {filtered.length > 0 ? (
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-accent">
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">DATE</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">COMPANY</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">CONTACT PERSON / NO.</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">CITY</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">STATE</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">COUNTRY</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">ASSIGNED TO</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">STATUS</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {filtered.map((lead) => (
+                <tr 
+                  key={lead.id} 
+                  onClick={() => handleRowClick(lead)}
+                  className="border-b border-border last:border-0 hover:bg-accent/50 cursor-pointer"
+                >
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{lead.createdAt}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-foreground">{lead.company}</td>
+                  <td className="px-4 py-3">
+                    <p className="text-sm text-foreground">{lead.contact}</p>
+                    <p className="text-xs text-muted-foreground">{lead.phone}</p>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{lead.city}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{lead.state}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{lead.country}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{lead.assignedTo}</td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(lead.status)}`}>
+                      {lead.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-border bg-card p-12 text-center">
+          <User className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">No leads found</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            {leadsData.length === 0 
+              ? "Get started by adding your first lead" 
+              : "Try adjusting your search or filters"}
+          </p>
+          {userRole === "admin" && leadsData.length === 0 && (
+            <Button onClick={handleOpenAddLeadDialog} className="bg-primary hover:opacity-90">
+              <Plus className="h-4 w-4 mr-2" /> Add Your First Lead
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Lead Details Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
