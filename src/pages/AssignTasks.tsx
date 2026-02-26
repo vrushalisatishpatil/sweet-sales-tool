@@ -1,6 +1,7 @@
 import { tasks as initialTasks, getPriorityColor, getTaskStatusColor, salesTeam, leads } from "@/data/mockData";
 import { useState } from "react";
 import { Plus, Search, ListTodo, Clock, AlertTriangle, CheckCircle2, User, Calendar, Building2, Filter, Check, ChevronDown } from "lucide-react";
+import { useUser } from "@/context/UserContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/popover";
 
 const AssignTasks = () => {
+  const { userRole } = useUser();
   const [tasksData] = useState(initialTasks);
   const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -149,12 +151,14 @@ const AssignTasks = () => {
           <h1 className="text-2xl font-bold text-foreground">Assign Tasks</h1>
           <p className="text-sm text-muted-foreground">{totalTasks} tasks found</p>
         </div>
-        <button 
-          onClick={handleOpenCreateTaskDialog}
-          className="flex items-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 px-4 py-2 text-sm font-medium text-white"
-        >
-          <Plus className="h-4 w-4" /> New Task
-        </button>
+        {userRole === "admin" && (
+          <button 
+            onClick={handleOpenCreateTaskDialog}
+            className="flex items-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 px-4 py-2 text-sm font-medium text-white"
+          >
+            <Plus className="h-4 w-4" /> New Task
+          </button>
+        )}
       </div>
 
       {/* Statistics Cards */}

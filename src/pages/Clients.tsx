@@ -2,6 +2,7 @@ import { clients as initialClients } from "@/data/mockData";
 import { Search, Upload, Plus, Users, X, Download } from "lucide-react";
 import { useState, useRef } from "react";
 import * as XLSX from 'xlsx';
+import { useUser } from "@/context/UserContext";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,7 @@ const mergeDuplicateClients = (clients: Client[]): Client[] => {
 };
 
 const Clients = () => {
+  const { userRole } = useUser();
   const [clientsData, setClientsData] = useState<Client[]>(initialClients);
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -282,22 +284,24 @@ const Clients = () => {
           >
             <Upload className="h-4 w-4" /> Import Excel
           </button>
-          <button 
-            onClick={() => {
-              setIsAddClientOpen(true);
-              // Reset form
-              setPartyName("");
-              setPincode("");
-              setState("");
-              setMainArea("");
-              setMultipleAreas([]);
-              setNewAreaInput("");
-              setAreaType("main");
-            }}
-            className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-          >
-            <Plus className="h-4 w-4" /> Add Client
-          </button>
+          {userRole === "admin" && (
+            <button 
+              onClick={() => {
+                setIsAddClientOpen(true);
+                // Reset form
+                setPartyName("");
+                setPincode("");
+                setState("");
+                setMainArea("");
+                setMultipleAreas([]);
+                setNewAreaInput("");
+                setAreaType("main");
+              }}
+              className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            >
+              <Plus className="h-4 w-4" /> Add Client
+            </button>
+          )}
         </div>
       </div>
 
