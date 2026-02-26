@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { leads as initialLeads, getStatusColor, type Lead, type LeadStatus } from "@/data/mockData";
-import { Plus, Search, Filter, X, User, Phone, Mail } from "lucide-react";
+import { Plus, Search, Filter, X, User, Phone, Mail, Upload, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +19,7 @@ const Leads = () => {
   const [followUpNotes, setFollowUpNotes] = useState("");
   const [followUpType, setFollowUpType] = useState("");
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Add Lead Dialog States
   const [isAddLeadDialogOpen, setIsAddLeadDialogOpen] = useState(false);
@@ -109,6 +111,57 @@ const Leads = () => {
     handleCloseAddLeadDialog();
   };
 
+  const handleDownloadTemplate = () => {
+    const templateData = leadsData.map((lead) => ({
+      "Lead ID": lead.leadId,
+      "Date": lead.createdAt,
+      "Company Name": lead.company,
+      "Contact Person": lead.contact,
+      "Contact Number": lead.phone,
+      "Email": lead.email,
+      "City": lead.city,
+      "State": lead.state,
+      "Country": lead.country,
+      "Inquiry Source": lead.source,
+      "Assigned To": lead.assignedTo,
+      "Status": lead.status,
+      "Product Interested": lead.productInterested,
+      "Initial Remarks": lead.remarks,
+      "Value": lead.value,
+      "Inquiry Date": lead.inquiryDate,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    worksheet["!cols"] = [
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 25 },
+      { wch: 22 },
+      { wch: 16 },
+      { wch: 28 },
+      { wch: 14 },
+      { wch: 16 },
+      { wch: 14 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 14 },
+      { wch: 22 },
+      { wch: 32 },
+      { wch: 12 },
+      { wch: 12 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
+    XLSX.writeFile(workbook, "leads-data.xlsx");
+  };
+
+  const handleLeadsFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    console.log("Leads import file selected:", file.name);
+  };
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
@@ -116,12 +169,35 @@ const Leads = () => {
           <h1 className="text-2xl font-bold text-foreground">Leads</h1>
           <p className="text-sm text-muted-foreground">Manage all your leads in one place</p>
         </div>
-        <button 
-          onClick={handleOpenAddLeadDialog}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-        >
-          <Plus className="h-4 w-4" /> Add Lead
-        </button>
+        <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls,.tsv"
+            onChange={handleLeadsFileUpload}
+            className="hidden"
+          />
+          <button
+            onClick={handleDownloadTemplate}
+            className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            title="Download leads template"
+          >
+            <Download className="h-4 w-4" /> Template
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            title="Import leads from Excel or CSV"
+          >
+            <Upload className="h-4 w-4" /> Import
+          </button>
+          <button 
+            onClick={handleOpenAddLeadDialog}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" /> Add Lead
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

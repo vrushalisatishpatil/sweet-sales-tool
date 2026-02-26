@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const methodIcons: Record<string, React.ReactNode> = {
   Call: <Phone className="h-5 w-5" />,
@@ -33,6 +34,13 @@ const FollowUps = () => {
     | "Irrelevant"
     | "Lost"
   >("New");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [assigneeFilter, setAssigneeFilter] = useState("All");
+  const [completionFilter, setCompletionFilter] = useState<"All" | "Pending" | "Completed">("Pending");
+  const [dateFilter, setDateFilter] = useState<"All" | "Today" | "This Week" | "Custom">("All");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
 
   const statusOptions = [
     "New",
@@ -46,6 +54,9 @@ const FollowUps = () => {
     "Irrelevant",
     "Lost",
   ];
+
+  const statusFilterOptions = ["All", ...statusOptions];
+  const assigneeOptions = ["All", ...Array.from(new Set(followUpData.map((item) => item.by)))];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -74,8 +85,85 @@ const FollowUps = () => {
     }
   };
 
-  // Filter today's follow-ups (you can adjust the logic as needed)
-  const todaysFollowUps = followUpData.filter((f) => !f.completed);
+  const parseFollowUpDate = (value: string) => {
+    if (!value) return null;
+    if (value.includes("/")) {
+      const [day, month, year] = value.split("/");
+      if (day && month && year) {
+        const parsed = new Date(Number(year), Number(month) - 1, Number(day));
+        if (!Number.isNaN(parsed.getTime())) return parsed;
+      }
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const isSameDay = (left: Date, right: Date) =>
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate();
+
+  const getWeekRange = (date: Date) => {
+    const day = date.getDay();
+    const diffToMonday = (day + 6) % 7;
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() - diffToMonday);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+    return { weekStart, weekEnd };
+  };
+
+  const filteredFollowUps = followUpData.filter((item) => {
+    if (completionFilter !== "All") {
+      const isCompleted = item.completed;
+      if (completionFilter === "Completed" && !isCompleted) return false;
+      if (completionFilter === "Pending" && isCompleted) return false;
+    }
+
+    if (statusFilter !== "All" && item.status !== statusFilter) return false;
+    if (assigneeFilter !== "All" && item.by !== assigneeFilter) return false;
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.trim().toLowerCase();
+      const matchTarget = [
+        item.company,
+        item.note,
+        item.phone,
+        item.by,
+        item.nextAction,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (!matchTarget.includes(query)) return false;
+    }
+
+    if (dateFilter !== "All") {
+      const dateValue = parseFollowUpDate(item.nextFollowUpDate || item.date);
+      if (!dateValue) return false;
+
+      const today = new Date();
+      if (dateFilter === "Today" && !isSameDay(dateValue, today)) return false;
+      if (dateFilter === "This Week") {
+        const { weekStart, weekEnd } = getWeekRange(today);
+        if (dateValue < weekStart || dateValue > weekEnd) return false;
+      }
+      if (dateFilter === "Custom") {
+        const startDate = customStartDate ? new Date(customStartDate) : null;
+        const endDate = customEndDate ? new Date(customEndDate) : null;
+        if (startDate && dateValue < startDate) return false;
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          if (dateValue > end) return false;
+        }
+      }
+    }
+
+    return true;
+  });
 
   const handleFollowUpClick = (followUp: FollowUp) => {
     setSelectedFollowUp(followUp);
@@ -92,12 +180,108 @@ const FollowUps = () => {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Today's Follow-ups</h1>
-        <p className="text-sm text-muted-foreground">{todaysFollowUps.length} follow-ups scheduled for today</p>
+        <h1 className="text-2xl font-bold text-foreground">Follow-ups</h1>
+        <p className="text-sm text-muted-foreground">{filteredFollowUps.length} follow-ups match your filters</p>
+      </div>
+
+      <div className="mb-6 rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="w-64 space-y-2">
+            <Label htmlFor="followup-search" className="text-xs">Search</Label>
+            <Input
+              id="followup-search"
+              placeholder="Search company, note, phone..."
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              className="h-9"
+            />
+          </div>
+          <div className="w-40 space-y-2">
+            <Label className="text-xs">Status</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {statusFilterOptions.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {status}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-40 space-y-2">
+            <Label className="text-xs">Assigned To</Label>
+            <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Assigned to" />
+              </SelectTrigger>
+              <SelectContent>
+                {assigneeOptions.map((assignee) => (
+                  <SelectItem key={assignee} value={assignee}>
+                    {assignee}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-36 space-y-2">
+            <Label className="text-xs">Completion</Label>
+            <Select value={completionFilter} onValueChange={(value) => setCompletionFilter(value as "All" | "Pending" | "Completed")}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Completion" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-36 space-y-2">
+            <Label className="text-xs">Date Range</Label>
+            <Select value={dateFilter} onValueChange={(value) => setDateFilter(value as "All" | "Today" | "This Week" | "Custom")}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Date range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All</SelectItem>
+                <SelectItem value="Today">Today</SelectItem>
+                <SelectItem value="This Week">This Week</SelectItem>
+                <SelectItem value="Custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {dateFilter === "Custom" && (
+            <>
+              <div className="w-40 space-y-2">
+                <Label htmlFor="custom-start-date" className="text-xs">Start Date</Label>
+                <Input
+                  id="custom-start-date"
+                  type="date"
+                  value={customStartDate}
+                  onChange={(event) => setCustomStartDate(event.target.value)}
+                  className="h-9"
+                />
+              </div>
+              <div className="w-40 space-y-2">
+                <Label htmlFor="custom-end-date" className="text-xs">End Date</Label>
+                <Input
+                  id="custom-end-date"
+                  type="date"
+                  value={customEndDate}
+                  onChange={(event) => setCustomEndDate(event.target.value)}
+                  className="h-9"
+                />
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="space-y-4">
-        {todaysFollowUps.map((fu) => (
+        {filteredFollowUps.map((fu) => (
           <div 
             key={fu.id} 
             className="rounded-xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
@@ -184,9 +368,9 @@ const FollowUps = () => {
         ))}
       </div>
 
-      {todaysFollowUps.length === 0 && (
+      {filteredFollowUps.length === 0 && (
         <div className="rounded-xl border border-border bg-card p-12 text-center">
-          <p className="text-muted-foreground">No follow-ups scheduled for today</p>
+          <p className="text-muted-foreground">No follow-ups match your filters</p>
         </div>
       )}
 
@@ -249,42 +433,18 @@ const FollowUps = () => {
                 {/* Status */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Status</Label>
-                  <Popover open={isStatusOpen} onOpenChange={setIsStatusOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-between border-2 border-gray-300 text-left font-normal hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors"
-                      >
-                        <span>{selectedStatus}</span>
-                        <ChevronDown className="h-4 w-4 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-full p-0" align="start">
-                      <div className="space-y-1 p-2">
-                        {statusOptions.map((status) => (
-                          <button
-                            key={status}
-                            className={`w-full px-3 py-2 text-sm text-left rounded-md transition-colors ${
-                              selectedStatus === status
-                                ? "bg-red-600 text-white flex items-center gap-2"
-                                : "hover:bg-gray-100"
-                            }`}
-                            onClick={() => {
-                              setSelectedStatus(status);
-                              setIsStatusOpen(false);
-                            }}
-                          >
-                            {selectedStatus === status && <Check className="h-4 w-4" />}
-                            {selectedStatus === status ? (
-                              <span className={selectedStatus === status ? "ml-6" : ""}>{status}</span>
-                            ) : (
-                              <span className="ml-6">{status}</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[280px] overflow-y-auto">
+                      {statusOptions.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Follow-up By and Follow-up Date */}
