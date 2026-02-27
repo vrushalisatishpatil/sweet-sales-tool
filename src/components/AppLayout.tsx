@@ -34,6 +34,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const [globalSearch, setGlobalSearch] = useState("");
   const [session, setSession] = useState<Session | null>(null);
+  const [localSessionEmail, setLocalSessionEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<"admin" | "salesperson">("salesperson");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
@@ -45,6 +46,17 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const adminEmail = "care@waxitylubricant.com";
 
   useEffect(() => {
+    const storedEmail = localStorage.getItem("salesperson_email");
+    if (storedEmail) {
+      setLocalSessionEmail(storedEmail);
+      setUserRole("salesperson");
+      setAuthLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (localSessionEmail) return;
+
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setAuthLoading(false);
@@ -72,18 +84,52 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [localSessionEmail, adminEmail]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    if (localSessionEmail) {
+      localStorage.removeItem("salesperson_email");
+      setLocalSessionEmail(null);
+      setUserRole("salesperson");
+    } else {
+      await supabase.auth.signOut();
+    }
     setShowProfileMenu(false);
   };
 
   const handleLogin = async () => {
     setAuthError(null);
+    const trimmedLogin = loginEmail.trim();
+    const trimmedPassword = loginPassword.trim();
+
+    if (!trimmedLogin || !trimmedPassword) {
+      setAuthError("Please enter your login and password.");
+      return;
+    }
+
+    if (loginRole === "salesperson") {
+      const { data, error: lookupError } = await supabase
+        .from("sales_team")
+        .select("email")
+        .eq("email", trimmedLogin)
+        .eq("password", trimmedPassword)
+        .maybeSingle();
+
+      if (lookupError || !data?.email) {
+        setAuthError("Invalid email or password.");
+        return;
+      }
+
+      localStorage.setItem("salesperson_email", trimmedLogin);
+      setLocalSessionEmail(trimmedLogin);
+      setUserRole("salesperson");
+      setLoginPassword("");
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
-      email: loginEmail,
-      password: loginPassword,
+      email: trimmedLogin,
+      password: trimmedPassword,
     });
     if (error) {
       setAuthError(error.message);
@@ -98,7 +144,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     );
   }
 
-  if (!session) {
+  if (!session && !localSessionEmail) {
     return (
       <div className="flex h-screen items-center justify-center bg-gradient-to-br from-red-50 via-white to-orange-50 px-4">
         <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-border bg-white shadow-2xl">
@@ -128,6 +174,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                   className={loginRole === "admin" ? "bg-red-600 hover:bg-red-700 text-white" : ""}
                   onClick={() => {
                     setLoginRole("admin");
+                    setLoginEmail("");
+                    setLoginPassword("");
                   }}
                 >
                   Admin
@@ -137,6 +185,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                   className={loginRole === "salesperson" ? "bg-red-600 hover:bg-red-700 text-white" : ""}
                   onClick={() => {
                     setLoginRole("salesperson");
+                    setLoginEmail("");
+                    setLoginPassword("");
                   }}
                 >
                   Sales Person
@@ -160,7 +210,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     className="mt-1"
-                    placeholder="care@waxitylubricant.com"
+                    placeholder="Your Email"
                   />
                 </div>
                 <div>

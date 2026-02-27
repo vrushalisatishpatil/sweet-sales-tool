@@ -7,11 +7,10 @@ CREATE TABLE sales_team (
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   phone TEXT NOT NULL,
-  role TEXT NOT NULL,
+  password TEXT NOT NULL,
   leads_assigned INTEGER DEFAULT 0,
   conversions INTEGER DEFAULT 0,
   avatar TEXT,
-  employee_id TEXT NOT NULL UNIQUE,
   status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
   leads INTEGER DEFAULT 0,
   converted INTEGER DEFAULT 0,
@@ -22,7 +21,6 @@ CREATE TABLE sales_team (
 
 -- Create indexes for better query performance
 CREATE INDEX idx_sales_team_status ON sales_team(status);
-CREATE INDEX idx_sales_team_employee_id ON sales_team(employee_id);
 CREATE INDEX idx_sales_team_email ON sales_team(email);
 CREATE INDEX idx_sales_team_created_at ON sales_team(created_at);
 

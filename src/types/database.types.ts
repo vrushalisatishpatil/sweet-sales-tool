@@ -125,11 +125,10 @@ export interface Database {
           name: string;
           email: string;
           phone: string;
-          role: string;
+          password: string;
           leads_assigned: number;
           conversions: number;
           avatar: string | null;
-          employee_id: string;
           status: "Active" | "Inactive";
           leads: number;
           converted: number;
@@ -143,11 +142,10 @@ export interface Database {
           name: string;
           email: string;
           phone: string;
-          role: string;
+          password: string;
           leads_assigned?: number;
           conversions?: number;
           avatar?: string | null;
-          employee_id: string;
           status?: "Active" | "Inactive";
           leads?: number;
           converted?: number;
@@ -161,11 +159,10 @@ export interface Database {
           name?: string;
           email?: string;
           phone?: string;
-          role?: string;
+          password?: string;
           leads_assigned?: number;
           conversions?: number;
           avatar?: string | null;
-          employee_id?: string;
           status?: "Active" | "Inactive";
           leads?: number;
           converted?: number;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Mail, Phone, Plus, Search, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { Mail, Phone, Plus, Search, CheckCircle2, Loader2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,17 +17,29 @@ const SalesTeam = () => {
   const [error, setError] = useState<string | null>(null);
   const [isAddPersonDialogOpen, setIsAddPersonDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [newPerson, setNewPerson] = useState({
     name: "",
     phone: "",
     email: "",
-    role: ""
+    password: ""
   });
   const { userRole } = useUser();
 
   useEffect(() => {
     fetchSalesTeam();
   }, []);
+
+  useEffect(() => {
+    if (isAddPersonDialogOpen) {
+      setNewPerson({ name: "", phone: "", email: "", password: "" });
+      setShowPassword(false);
+    }
+  }, [isAddPersonDialogOpen]);
+
+  const generatePersonId = () => {
+    return `SP${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+  };
 
   const fetchSalesTeam = async () => {
     try {
@@ -48,10 +60,6 @@ const SalesTeam = () => {
     }
   };
 
-  const generatePersonId = () => {
-    return `SP${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-  };
-
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -66,6 +74,8 @@ const SalesTeam = () => {
       setError('Only admin users can add sales team members');
       return;
     }
+    setNewPerson({ name: "", phone: "", email: "", password: "" });
+    setShowPassword(false);
     setIsAddPersonDialogOpen(true);
   };
 
@@ -75,13 +85,14 @@ const SalesTeam = () => {
       name: "",
       phone: "",
       email: "",
-      role: ""
+      password: ""
     });
+    setShowPassword(false);
   };
 
   const handleCreateSalesPerson = async () => {
     // Validate input
-    if (!newPerson.name.trim() || !newPerson.email.trim() || !newPerson.phone.trim() || !newPerson.role.trim()) {
+    if (!newPerson.name.trim() || !newPerson.email.trim() || !newPerson.phone.trim() || !newPerson.password.trim()) {
       setError('All fields are required');
       return;
     }
@@ -98,8 +109,7 @@ const SalesTeam = () => {
         name: newPerson.name.trim(),
         email: newPerson.email.trim(),
         phone: newPerson.phone.trim(),
-        role: newPerson.role.trim(),
-        employee_id: personId,
+        password: newPerson.password.trim(),
         avatar: initials,
         status: 'Active' as const,
         leads: 0,
@@ -130,7 +140,6 @@ const SalesTeam = () => {
   const filteredSalesTeam = salesTeam.filter((person) => {
     const matchesSearch = 
       person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      person.employee_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       person.email.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
   });
@@ -223,10 +232,9 @@ const SalesTeam = () => {
                   {person.avatar}
                 </div>
 
-                {/* Name and ID */}
+                {/* Name */}
                 <div className="flex-1 min-w-0">
                   <h3 className="text-[15px] font-bold text-gray-900 leading-none">{person.name}</h3>
-                  <p className="text-[13px] text-blue-600 leading-none mt-0.5">{person.employee_id}</p>
                 </div>
 
                 {/* Status Badge */}
@@ -252,9 +260,9 @@ const SalesTeam = () => {
                 </div>
               </div>
 
-              {/* Role */}
+              {/* Password */}
               <div className="mb-3 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
-                {person.role}
+                Password: {person.password}
               </div>
 
               {/* Statistics */}
@@ -296,20 +304,8 @@ const SalesTeam = () => {
               />
             </div>
 
-            {/* Role and Phone side by side */}
+            {/* Phone and Email side by side */}
             <div className="grid grid-cols-2 gap-4">
-              {/* Role */}
-              <div>
-                <Label htmlFor="role">Role *</Label>
-                <Input
-                  id="role"
-                  value={newPerson.role}
-                  onChange={(e) => setNewPerson({ ...newPerson, role: e.target.value })}
-                  placeholder="e.g., Sales Executive"
-                  className="mt-1 rounded-lg"
-                />
-              </div>
-
               {/* Phone */}
               <div>
                 <Label htmlFor="phone">Mobile Number *</Label>
@@ -321,19 +317,43 @@ const SalesTeam = () => {
                   className="mt-1 rounded-lg"
                 />
               </div>
+
+              {/* Email */}
+              <div>
+                <Label htmlFor="email">Email ID *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newPerson.email}
+                  onChange={(e) => setNewPerson({ ...newPerson, email: e.target.value })}
+                  placeholder="Your Email"
+                  className="mt-1 rounded-lg"
+                  autoComplete="off"
+                />
+              </div>
             </div>
 
-            {/* Email */}
+            {/* Password */}
             <div>
-              <Label htmlFor="email">Email ID *</Label>
-              <Input
-                id="email"
-                type="email"
-                value={newPerson.email}
-                onChange={(e) => setNewPerson({ ...newPerson, email: e.target.value })}
-                placeholder="email@company.com"
-                className="mt-1 rounded-lg"
-              />
+              <Label htmlFor="password">Password *</Label>
+              <div className="relative mt-1">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={newPerson.password}
+                  onChange={(e) => setNewPerson({ ...newPerson, password: e.target.value })}
+                  placeholder="Your Password"
+                  className="mt-1 rounded-lg pr-10"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             {/* Create Button */}
