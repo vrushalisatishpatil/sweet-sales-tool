@@ -215,7 +215,7 @@ const AddNotes = () => {
             </button>
 
             {/* Status Dropdown */}
-            <div className="mb-3 flex items-center gap-2">
+            <div className="mb-3 flex items-center gap-2 pr-10">
               <Select value={note.category} onValueChange={(value) => handleStatusChange(note.id, value)}>
                 <SelectTrigger className={`h-7 px-2 text-xs font-medium w-fit ${
                   note.category === "Pending" 

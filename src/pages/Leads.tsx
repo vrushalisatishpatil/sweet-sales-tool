@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, type ChangeEvent } from "react";
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/lib/supabase";
 import type { LeadStatus } from "@/types/database.types";
-import { Plus, Search, Filter, X, User, Phone, Mail, Upload, Download } from "lucide-react";
+import { Plus, Search, Filter, X, User, Phone, Mail, Upload, Download, Pencil, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -50,6 +50,7 @@ const getStatusColor = (status: LeadStatus) => {
 const Leads = () => {
   const { userRole } = useUser();
   const [leadsData, setLeadsData] = useState<Lead[]>([]);
+  const [salesPersons, setSalesPersons] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -60,6 +61,7 @@ const Leads = () => {
   const [followUpNotes, setFollowUpNotes] = useState("");
   const [followUpType, setFollowUpType] = useState("");
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
+  const [isEditMode, setIsEditMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Add Lead Dialog States
@@ -96,7 +98,27 @@ const Leads = () => {
   // Fetch leads from Supabase
   useEffect(() => {
     fetchLeads();
+    fetchSalesPersons();
   }, []);
+
+  const fetchSalesPersons = async () => {
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('sales_team')
+        .select('id, name, status')
+        .eq('status', 'Active')
+        .order('name', { ascending: true });
+
+      if (fetchError) throw fetchError;
+
+      setSalesPersons((data || []).map((person) => ({
+        id: person.id,
+        name: person.name,
+      })));
+    } catch (err) {
+      console.error('Error fetching sales persons:', err);
+    }
+  };
 
   const fetchLeads = async () => {
     try {
@@ -155,6 +177,7 @@ const Leads = () => {
   const handleRowClick = (lead: Lead) => {
     setSelectedLead(lead);
     setIsDialogOpen(true);
+    setIsEditMode(false);
     setUpdateStatus("");
     setFollowUpNotes("");
     setFollowUpType("");
@@ -164,6 +187,84 @@ const Leads = () => {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setSelectedLead(null);
+    setIsEditMode(false);
+  };
+
+  const handleEditLead = () => {
+    if (selectedLead) {
+      setNewLead({
+        date: selectedLead.inquiryDate,
+        companyName: selectedLead.company,
+        contactPerson: selectedLead.contact,
+        contactNumber: selectedLead.phone,
+        emailId: selectedLead.email,
+        city: selectedLead.city,
+        state: selectedLead.state,
+        country: selectedLead.country,
+        inquirySource: selectedLead.source,
+        assignSalesPerson: selectedLead.assignedTo,
+        productInterested: selectedLead.productInterested,
+        initialRemarks: selectedLead.remarks
+      });
+      setIsEditMode(true);
+    }
+  };
+
+  const handleUpdateLead = async () => {
+    try {
+      if (!selectedLead) return;
+
+      const { error: updateError } = await supabase
+        .from('leads')
+        .update({
+          company: newLead.companyName,
+          contact: newLead.contactPerson,
+          phone: newLead.contactNumber,
+          email: newLead.emailId,
+          city: newLead.city,
+          state: newLead.state,
+          country: newLead.country,
+          source: newLead.inquirySource,
+          assigned_to: newLead.assignSalesPerson,
+          product_interested: newLead.productInterested,
+          remarks: newLead.initialRemarks,
+          inquiry_date: newLead.date
+        })
+        .eq('id', selectedLead.id);
+
+      if (updateError) throw updateError;
+
+      await fetchLeads();
+      alert('Lead updated successfully!');
+      setIsEditMode(false);
+      handleCloseDialog();
+    } catch (err) {
+      console.error('Error updating lead:', err);
+      alert('Failed to update lead. Please try again.');
+    }
+  };
+
+  const handleDeleteLead = async () => {
+    if (!selectedLead) return;
+
+    const confirmDelete = window.confirm(`Are you sure you want to delete the lead "${selectedLead.company}"?`);
+    if (!confirmDelete) return;
+
+    try {
+      const { error: deleteError } = await supabase
+        .from('leads')
+        .delete()
+        .eq('id', selectedLead.id);
+
+      if (deleteError) throw deleteError;
+
+      await fetchLeads();
+      alert('Lead deleted successfully!');
+      handleCloseDialog();
+    } catch (err) {
+      console.error('Error deleting lead:', err);
+      alert('Failed to delete lead. Please try again.');
+    }
   };
 
   const handleSaveFollowUp = async () => {
@@ -565,14 +666,30 @@ const Leads = () => {
       {/* Lead Details Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          {selectedLead && (
+          {selectedLead && !isEditMode && (
             <div className="space-y-6">
               {/* Header with Title and Status */}
-              <div className="flex items-center justify-between -mt-2">
+              <div className="flex items-center justify-between -mt-2 pr-4">
                 <h2 className="text-xl font-semibold text-foreground">{selectedLead.company}</h2>
-                <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(selectedLead.status)}`}>
-                  {selectedLead.status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={handleEditLead}
+                    className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                    title="Edit"
+                  >
+                    <Pencil className="h-4 w-4 text-gray-600" />
+                  </button>
+                  <button 
+                    onClick={handleDeleteLead}
+                    className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-600" />
+                  </button>
+                  <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(selectedLead.status)}`}>
+                    {selectedLead.status}
+                  </span>
+                </div>
               </div>
 
               {/* Contact Information Section */}
@@ -716,6 +833,185 @@ const Leads = () => {
               </div>
             </div>
           )}
+
+          {/* Edit Lead Form */}
+          {selectedLead && isEditMode && (
+            <div className="space-y-4">
+              <DialogHeader>
+                <DialogTitle>Edit Lead</DialogTitle>
+              </DialogHeader>
+              
+              {/* Date */}
+              <div>
+                <Label htmlFor="edit-date">Date</Label>
+                <Input
+                  id="edit-date"
+                  type="date"
+                  value={newLead.date}
+                  onChange={(e) => setNewLead({ ...newLead, date: e.target.value })}
+                  placeholder="mm/dd/yyyy"
+                  className="mt-1"
+                />
+              </div>
+
+              {/* Company Name and Contact Person */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-companyName">Company Name</Label>
+                  <Input
+                    id="edit-companyName"
+                    value={newLead.companyName}
+                    onChange={(e) => setNewLead({ ...newLead, companyName: e.target.value })}
+                    placeholder="Enter company name"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-contactPerson">Contact Person</Label>
+                  <Input
+                    id="edit-contactPerson"
+                    value={newLead.contactPerson}
+                    onChange={(e) => setNewLead({ ...newLead, contactPerson: e.target.value })}
+                    placeholder="Enter contact name"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              {/* Contact Number and Email ID */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-contactNumber">Contact Number</Label>
+                  <Input
+                    id="edit-contactNumber"
+                    value={newLead.contactNumber}
+                    onChange={(e) => setNewLead({ ...newLead, contactNumber: e.target.value })}
+                    placeholder="+91 XXXXX XXXXX"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-emailId">Email ID</Label>
+                  <Input
+                    id="edit-emailId"
+                    type="email"
+                    value={newLead.emailId}
+                    onChange={(e) => setNewLead({ ...newLead, emailId: e.target.value })}
+                    placeholder="email@company.com"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              {/* City, State, Country */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="edit-city">City</Label>
+                  <Input
+                    id="edit-city"
+                    value={newLead.city}
+                    onChange={(e) => setNewLead({ ...newLead, city: e.target.value })}
+                    placeholder="Enter city"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-state">State</Label>
+                  <Input
+                    id="edit-state"
+                    value={newLead.state}
+                    onChange={(e) => setNewLead({ ...newLead, state: e.target.value })}
+                    placeholder="Enter state"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-country">Country</Label>
+                  <Input
+                    id="edit-country"
+                    value={newLead.country}
+                    onChange={(e) => setNewLead({ ...newLead, country: e.target.value })}
+                    placeholder="Enter country"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              {/* Inquiry Source and Assign Sales Person */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-inquirySource">Inquiry Source</Label>
+                  <Select value={newLead.inquirySource} onValueChange={(value) => setNewLead({ ...newLead, inquirySource: value })}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="INDIAMART">INDIAMART</SelectItem>
+                      <SelectItem value="TRADEINDIA">TRADEINDIA</SelectItem>
+                      <SelectItem value="Website">Website</SelectItem>
+                      <SelectItem value="Email">Email</SelectItem>
+                      <SelectItem value="Call">Call</SelectItem>
+                      <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-assignSalesPerson">Assign Sales Person</Label>
+                    <Select value={newLead.assignSalesPerson} onValueChange={(value) => setNewLead({ ...newLead, assignSalesPerson: value })}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select person" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {salesPersons.map((person) => (
+                          <SelectItem key={person.id} value={person.name}>{person.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                </div>
+              </div>
+
+              {/* Product Interested */}
+              <div>
+                <Label htmlFor="edit-productInterested">Product Interested</Label>
+                <Input
+                  id="edit-productInterested"
+                  value={newLead.productInterested}
+                  onChange={(e) => setNewLead({ ...newLead, productInterested: e.target.value })}
+                  placeholder="Product name"
+                  className="mt-1"
+                />
+              </div>
+
+              {/* Initial Remarks */}
+              <div>
+                <Label htmlFor="edit-initialRemarks">Remarks</Label>
+                <Textarea
+                  id="edit-initialRemarks"
+                  value={newLead.initialRemarks}
+                  onChange={(e) => setNewLead({ ...newLead, initialRemarks: e.target.value })}
+                  placeholder="Add remarks..."
+                  className="mt-1 min-h-[80px] resize-none"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Button 
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                  onClick={handleUpdateLead}
+                >
+                  Update Lead
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setIsEditMode(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -851,10 +1147,9 @@ const Leads = () => {
                     <SelectValue placeholder="Select person" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Rahul Sharma">Rahul Sharma</SelectItem>
-                    <SelectItem value="Priya Patel">Priya Patel</SelectItem>
-                    <SelectItem value="Amit Kumar">Amit Kumar</SelectItem>
-                    <SelectItem value="Sneha Gupta">Sneha Gupta</SelectItem>
+                    {salesPersons.map((person) => (
+                      <SelectItem key={person.id} value={person.name}>{person.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
