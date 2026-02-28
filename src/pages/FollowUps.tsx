@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useUser } from "@/context/UserContext";
+import { supabase } from "@/lib/supabase";
 
 interface FollowUp {
   id: string;
@@ -11,6 +13,8 @@ interface FollowUp {
   date: string;
   status: string;
   completed: boolean;
+  nextFollowUpDate?: string;
+  nextAction?: string;
 }
 import { Phone, Mail, MessageCircle, MapPin, ArrowRight, Calendar, Edit, History, Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,7 +33,10 @@ const methodIcons: Record<string, React.ReactNode> = {
 };
 
 const FollowUps = () => {
-  const [followUpData] = useState<FollowUp[]>([]);
+  const { userRole, userName } = useUser();
+  const [followUpData, setFollowUpData] = useState<FollowUp[]>([]);
+  const [salesTeam, setSalesTeam] = useState<Array<{ id: string; name: string }>>([]);
+  const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedFollowUp, setSelectedFollowUp] = useState<FollowUp | null>(null);
   const [isHistoryView, setIsHistoryView] = useState(false);
@@ -53,6 +60,84 @@ const FollowUps = () => {
   const [dateFilter, setDateFilter] = useState<"All" | "Today" | "This Week" | "Custom">("All");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
+  
+  // Form input states for follow-up edit
+  const [discussion, setDiscussion] = useState("");
+  const [followUpBy, setFollowUpBy] = useState("");
+  const [followUpDate, setFollowUpDate] = useState("");
+  const [nextFollowUp, setNextFollowUp] = useState("");
+  const [nextFollowUpDate, setNextFollowUpDate] = useState("");
+  
+  // History state
+  const [followUpHistory, setFollowUpHistory] = useState<Array<{
+    id: string;
+    discussion: string;
+    follow_up_by: string;
+    follow_up_date: string;
+    next_follow_up: string;
+    next_follow_up_date: string;
+    created_at: string;
+  }>>([]);
+
+  // Fetch follow-ups from Supabase
+  useEffect(() => {
+    fetchFollowUps();
+    fetchSalesTeam();
+  }, []);
+
+  const fetchSalesTeam = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sales_team')
+        .select('id, name')
+        .eq('status', 'Active');
+      
+      if (error) throw error;
+      setSalesTeam(data || []);
+    } catch (err) {
+      console.error('Error fetching sales team:', err);
+    }
+  };
+
+  const fetchFollowUps = async () => {
+    try {
+      setLoading(true);
+      let query = supabase
+        .from('leads')
+        .select('*');
+      
+      // Filter by assigned user if not admin
+      if (userRole === 'salesperson' && userName) {
+        query = query.eq('assigned_to', userName);
+      }
+      
+      const { data, error } = await query.order('next_follow_up_date', { ascending: true });
+      
+      if (error) throw error;
+      
+      // Transform the data to match FollowUp interface
+      const transformedData: FollowUp[] = (data || []).map((lead) => ({
+        id: lead.id,
+        company: lead.company || '',
+        contact: lead.contact || '',
+        phone: lead.phone || '',
+        method: 'Call', // Default method
+        note: lead.remarks || '',
+        by: lead.assigned_to || '',
+        date: lead.inquiry_date || new Date(lead.created_at).toISOString().split('T')[0],
+        status: lead.status || 'New',
+        completed: false,
+        nextFollowUpDate: lead.next_follow_up_date || '',
+        nextAction: lead.remarks || ''
+      }));
+      
+      setFollowUpData(transformedData);
+    } catch (err) {
+      console.error('Error fetching follow-ups:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const statusOptions = [
     "New",
@@ -68,7 +153,7 @@ const FollowUps = () => {
   ];
 
   const statusFilterOptions = ["All", ...statusOptions];
-  const assigneeOptions = ["All", ...Array.from(new Set(followUpData.map((item) => item.by)))];
+  const assigneeOptions = ["All", ...salesTeam.map((person) => person.name)];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -180,20 +265,78 @@ const FollowUps = () => {
   const handleFollowUpClick = (followUp: FollowUp) => {
     setSelectedFollowUp(followUp);
     setIsHistoryView(false);
-    setSelectedStatus(followUp.status);
+    setSelectedStatus(followUp.status as any);
+    setDiscussion(followUp.note);
+    setFollowUpBy(followUp.by);
+    setFollowUpDate(followUp.date);
+    setNextFollowUp(followUp.nextAction || "");
+    setNextFollowUpDate(followUp.nextFollowUpDate || "");
     setIsDialogOpen(true);
+    fetchFollowUpHistory(followUp.id);
   };
 
-  const handleSubmit = () => {
-    // Handle form submission here
-    setIsDialogOpen(false);
+  const fetchFollowUpHistory = async (leadId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('follow_up_history')
+        .select('*')
+        .eq('lead_id', leadId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setFollowUpHistory(data || []);
+    } catch (err) {
+      console.error('Error fetching follow-up history:', err);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedFollowUp) return;
+    
+    try {
+      // Save to history table
+      const { error: historyError } = await supabase
+        .from('follow_up_history')
+        .insert([
+          {
+            lead_id: selectedFollowUp.id,
+            description: discussion,
+            follow_up_by: followUpBy,
+            follow_up_date: followUpDate,
+            next_follow_up: nextFollowUp,
+            next_follow_up_date: nextFollowUpDate,
+          }
+        ]);
+      
+      if (historyError) throw historyError;
+      
+      // Update lead's next follow-up date
+      const { error: updateError } = await supabase
+        .from('leads')
+        .update({
+          next_follow_up_date: nextFollowUpDate || null,
+          status: selectedStatus as any
+        })
+        .eq('id', selectedFollowUp.id);
+      
+      if (updateError) throw updateError;
+      
+      // Refresh data
+      await fetchFollowUps();
+      await fetchFollowUpHistory(selectedFollowUp.id);
+      
+      alert('Follow-up saved successfully!');
+    } catch (err) {
+      console.error('Error saving follow-up:', err);
+      alert('Failed to save follow-up. Please try again.');
+    }
   };
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Follow-ups</h1>
-        <p className="text-sm text-muted-foreground">{filteredFollowUps.length} follow-ups match your filters</p>
+        <p className="text-sm text-muted-foreground">{loading ? "Loading..." : `${filteredFollowUps.length} follow-ups match your filters`}</p>
       </div>
 
       <div className="mb-6 rounded-xl border border-border bg-card p-4">
@@ -223,21 +366,23 @@ const FollowUps = () => {
               </SelectContent>
             </Select>
           </div>
-          <div className="w-40 space-y-2">
-            <Label className="text-xs">Assigned To</Label>
-            <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Assigned to" />
-              </SelectTrigger>
-              <SelectContent>
-                {assigneeOptions.map((assignee) => (
-                  <SelectItem key={assignee} value={assignee}>
-                    {assignee}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {userRole === "admin" && (
+            <div className="w-40 space-y-2">
+              <Label className="text-xs">Assigned To</Label>
+              <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Assigned to" />
+                </SelectTrigger>
+                <SelectContent>
+                  {assigneeOptions.map((assignee) => (
+                    <SelectItem key={assignee} value={assignee}>
+                      {assignee}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="w-36 space-y-2">
             <Label className="text-xs">Completion</Label>
             <Select value={completionFilter} onValueChange={(value) => setCompletionFilter(value as "All" | "Pending" | "Completed")}>
@@ -436,7 +581,8 @@ const FollowUps = () => {
                   </Label>
                   <Textarea
                     id="discussion"
-                    defaultValue={selectedFollowUp?.note}
+                    value={discussion}
+                    onChange={(e) => setDiscussion(e.target.value)}
                     placeholder="Enter discussion details..."
                     className="min-h-[100px] rounded-lg resize-none focus-visible:ring-0 focus-visible:ring-offset-0 border-2 border-gray-300 focus:border-red-500"
                   />
@@ -467,7 +613,8 @@ const FollowUps = () => {
                     </Label>
                     <Input
                       id="followUpBy"
-                      defaultValue={selectedFollowUp?.by}
+                      value={followUpBy}
+                      onChange={(e) => setFollowUpBy(e.target.value)}
                       placeholder="Enter name"
                       className="rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 border-2 border-gray-300 focus:border-red-500"
                     />
@@ -479,7 +626,8 @@ const FollowUps = () => {
                     <Input
                       id="followUpDate"
                       type="date"
-                      defaultValue={selectedFollowUp?.date}
+                      value={followUpDate}
+                      onChange={(e) => setFollowUpDate(e.target.value)}
                       className="rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 border-2 border-gray-300 focus:border-red-500"
                     />
                   </div>
@@ -493,7 +641,8 @@ const FollowUps = () => {
                     </Label>
                     <Input
                       id="nextFollowUp"
-                      defaultValue={selectedFollowUp?.nextAction}
+                      value={nextFollowUp}
+                      onChange={(e) => setNextFollowUp(e.target.value)}
                       placeholder="Enter next action"
                       className="rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 border-2 border-gray-300 focus:border-red-500"
                     />
@@ -506,6 +655,8 @@ const FollowUps = () => {
                     <Input
                       id="nextFollowUpDate"
                       type="date"
+                      value={nextFollowUpDate}
+                      onChange={(e) => setNextFollowUpDate(e.target.value)}
                       placeholder="Select date"
                       className="rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 border-2 border-gray-300 focus:border-red-500"
                     />
@@ -518,160 +669,47 @@ const FollowUps = () => {
             {isHistoryView && (
               <div className="space-y-4 pt-4">
                 <div className="max-h-[300px] overflow-y-auto space-y-4 pr-2">
-                  {/* History Item 1 */}
-                  <div className="rounded-lg border-2 border-gray-200 p-4 bg-gray-50">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">1st Follow-up</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700">Discussion</Label>
-                        <p className="mt-1 text-sm text-gray-900">Discussed project timeline and budget requirements in detail</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Follow-up By</Label>
-                          <p className="mt-1 text-sm text-gray-900">{selectedFollowUp?.by}</p>
+                  {followUpHistory.length > 0 ? (
+                    followUpHistory.map((history, index) => {
+                      const ordinals = ['st', 'nd', 'rd'];
+                      const ordinal = index < 3 ? ordinals[index] : 'th';
+                      const number = index + 1;
+                      
+                      return (
+                        <div key={history.id} className="rounded-lg border-2 border-gray-200 p-4 bg-gray-50">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-3">{number}{ordinal} Follow-up</h4>
+                          <div className="space-y-3">
+                            <div>
+                              <Label className="text-sm font-medium text-gray-700">Discussion</Label>
+                              <p className="mt-1 text-sm text-gray-900">{history.description || '-'}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <Label className="text-sm font-medium text-gray-700">Follow-up By</Label>
+                                <p className="mt-1 text-sm text-gray-900">{history.follow_up_by || '-'}</p>
+                              </div>
+                              <div>
+                                <Label className="text-sm font-medium text-gray-700">Follow-up Date</Label>
+                                <p className="mt-1 text-sm text-gray-900">{history.follow_up_date || '-'}</p>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <Label className="text-sm font-medium text-gray-700">Next Follow-up</Label>
+                                <p className="mt-1 text-sm text-gray-900">{history.next_follow_up || '-'}</p>
+                              </div>
+                              <div>
+                                <Label className="text-sm font-medium text-gray-700">Next Follow-up Date</Label>
+                                <p className="mt-1 text-sm text-gray-900">{history.next_follow_up_date || '-'}</p>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Follow-up Date</Label>
-                          <p className="mt-1 text-sm text-gray-900">2025-02-10</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Next Follow-up</Label>
-                          <p className="mt-1 text-sm text-gray-900">Schedule product demo</p>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Next Follow-up Date</Label>
-                          <p className="mt-1 text-sm text-gray-900">2025-02-15</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* History Item 2 */}
-                  <div className="rounded-lg border-2 border-gray-200 p-4 bg-gray-50">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">2nd Follow-up</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700">Discussion</Label>
-                        <p className="mt-1 text-sm text-gray-900">Initial contact made, expressed interest in our services</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Follow-up By</Label>
-                          <p className="mt-1 text-sm text-gray-900">{selectedFollowUp?.by}</p>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Follow-up Date</Label>
-                          <p className="mt-1 text-sm text-gray-900">2025-02-05</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Next Follow-up</Label>
-                          <p className="mt-1 text-sm text-gray-900">Send detailed proposal</p>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Next Follow-up Date</Label>
-                          <p className="mt-1 text-sm text-gray-900">2025-02-10</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* History Item 3 */}
-                  <div className="rounded-lg border-2 border-gray-200 p-4 bg-gray-50">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">3rd Follow-up</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700">Discussion</Label>
-                        <p className="mt-1 text-sm text-gray-900">Cold call - company looking for software solutions</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Follow-up By</Label>
-                          <p className="mt-1 text-sm text-gray-900">{selectedFollowUp?.by}</p>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Follow-up Date</Label>
-                          <p className="mt-1 text-sm text-gray-900">2025-02-01</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Next Follow-up</Label>
-                          <p className="mt-1 text-sm text-gray-900">Initial meeting call</p>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Next Follow-up Date</Label>
-                          <p className="mt-1 text-sm text-gray-900">2025-02-05</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* History Item 4 */}
-                  <div className="rounded-lg border-2 border-gray-200 p-4 bg-gray-50">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">4th Follow-up</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700">Discussion</Label>
-                        <p className="mt-1 text-sm text-gray-900">Sent pricing details and service packages</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Follow-up By</Label>
-                          <p className="mt-1 text-sm text-gray-900">{selectedFollowUp?.by}</p>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Follow-up Date</Label>
-                          <p className="mt-1 text-sm text-gray-900">2025-01-28</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Next Follow-up</Label>
-                          <p className="mt-1 text-sm text-gray-900">Follow up on proposal</p>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Next Follow-up Date</Label>
-                          <p className="mt-1 text-sm text-gray-900">2025-02-01</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* History Item 5 */}
-                  <div className="rounded-lg border-2 border-gray-200 p-4 bg-gray-50">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">5th Follow-up</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700">Discussion</Label>
-                        <p className="mt-1 text-sm text-gray-900">Client requested additional features and customization options</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Follow-up By</Label>
-                          <p className="mt-1 text-sm text-gray-900">{selectedFollowUp?.by}</p>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Follow-up Date</Label>
-                          <p className="mt-1 text-sm text-gray-900">2025-01-25</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Next Follow-up</Label>
-                          <p className="mt-1 text-sm text-gray-900">Prepare revised quotation</p>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700">Next Follow-up Date</Label>
-                          <p className="mt-1 text-sm text-gray-900">2025-01-28</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-center text-gray-500 py-4">No follow-up history available</p>
+                  )}
                 </div>
               </div>
             )}

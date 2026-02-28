@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS leads (
   value NUMERIC DEFAULT 0,
   remarks TEXT,
   inquiry_date DATE,
+  next_follow_up_date DATE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

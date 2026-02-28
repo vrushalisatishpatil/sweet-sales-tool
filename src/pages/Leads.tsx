@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, type ChangeEvent } from "react";
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/lib/supabase";
 import type { LeadStatus } from "@/types/database.types";
-import { Plus, Search, Filter, X, User, Phone, Mail, Upload, Download, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Filter, X, User, Phone, Mail, Upload, Download, Pencil, Trash2, RotateCw } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ interface Lead {
   value: number;
   remarks: string;
   inquiryDate: string;
+  nextFollowUpDate: string;
   createdAt: string;
 }
 
@@ -78,7 +79,8 @@ const Leads = () => {
     inquirySource: "",
     assignSalesPerson: "",
     productInterested: "",
-    initialRemarks: ""
+    initialRemarks: "",
+    nextFollowUpDate: ""
   });
 
   const statuses: string[] = [
@@ -157,6 +159,7 @@ const Leads = () => {
         value: dbLead.value || 0,
         remarks: dbLead.remarks || '',
         inquiryDate: dbLead.inquiry_date || '',
+        nextFollowUpDate: dbLead.next_follow_up_date || '',
         createdAt: new Date(dbLead.created_at).toISOString().split('T')[0],
       }));
 
@@ -169,10 +172,24 @@ const Leads = () => {
     }
   };
 
-  const generateLeadId = () => {
-    const timestamp = Date.now().toString().slice(-6);
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    return `LD${timestamp}${random}`;
+  const generateLeadId = async () => {
+    const year = new Date().getFullYear();
+    const prefix = `LEAD-${year}-`;
+    
+    // Count existing leads for this year
+    const { data, error } = await supabase
+      .from('leads')
+      .select('lead_id', { count: 'exact' })
+      .like('lead_id', `${prefix}%`);
+    
+    if (error) {
+      console.error('Error counting leads:', error);
+      return `${prefix}0001`; // Fallback if error
+    }
+    
+    const count = data?.length || 0;
+    const nextNumber = (count + 1).toString().padStart(4, '0');
+    return `${prefix}${nextNumber}`;
   };
 
   const filtered = leadsData.filter((l) => {
@@ -188,7 +205,7 @@ const Leads = () => {
     setUpdateStatus("");
     setFollowUpNotes("");
     setFollowUpType("");
-    setNextFollowUpDate("");
+    setNextFollowUpDate(lead.nextFollowUpDate || "");
   };
 
   const handleCloseDialog = () => {
@@ -211,7 +228,8 @@ const Leads = () => {
         inquirySource: selectedLead.source,
         assignSalesPerson: selectedLead.assignedTo,
         productInterested: selectedLead.productInterested,
-        initialRemarks: selectedLead.remarks
+        initialRemarks: selectedLead.remarks,
+        nextFollowUpDate: selectedLead.nextFollowUpDate || ""
       });
       setIsEditMode(true);
     }
@@ -235,7 +253,8 @@ const Leads = () => {
           assigned_to: newLead.assignSalesPerson,
           product_interested: newLead.productInterested,
           remarks: newLead.initialRemarks,
-          inquiry_date: newLead.date
+          inquiry_date: newLead.date,
+          next_follow_up_date: newLead.nextFollowUpDate || null
         })
         .eq('id', selectedLead.id);
 
@@ -278,11 +297,21 @@ const Leads = () => {
     try {
       if (!selectedLead) return;
 
-      // Update lead status if provided
+      // Update lead status and next follow-up date
+      const updateData: { status?: LeadStatus; next_follow_up_date?: string | null } = {};
+      
       if (updateStatus) {
+        updateData.status = updateStatus as LeadStatus;
+      }
+      
+      if (nextFollowUpDate) {
+        updateData.next_follow_up_date = nextFollowUpDate;
+      }
+      
+      if (Object.keys(updateData).length > 0) {
         const { error: updateError } = await supabase
           .from('leads')
-          .update({ status: updateStatus as LeadStatus })
+          .update(updateData)
           .eq('id', selectedLead.id);
 
         if (updateError) throw updateError;
@@ -327,7 +356,8 @@ const Leads = () => {
       inquirySource: "",
       assignSalesPerson: "",
       productInterested: "",
-      initialRemarks: ""
+      initialRemarks: "",
+      nextFollowUpDate: ""
     });
   };
 
@@ -338,7 +368,7 @@ const Leads = () => {
         return;
       }
 
-      const leadId = generateLeadId();
+      const leadId = await generateLeadId();
       
       const { data, error: insertError } = await supabase
         .from('leads')
@@ -358,6 +388,7 @@ const Leads = () => {
             status: 'New',
             remarks: newLead.initialRemarks,
             inquiry_date: newLead.date || new Date().toISOString().split('T')[0],
+            next_follow_up_date: newLead.nextFollowUpDate || null,
             value: 0,
           }
         ])
@@ -394,6 +425,7 @@ const Leads = () => {
       "Initial Remarks": lead.remarks,
       "Value": lead.value,
       "Inquiry Date": lead.inquiryDate,
+      "Next Follow-up Date": lead.nextFollowUpDate,
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(templateData);
@@ -414,6 +446,7 @@ const Leads = () => {
       { wch: 32 },
       { wch: 12 },
       { wch: 12 },
+      { wch: 18 },
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -470,15 +503,29 @@ const Leads = () => {
           };
 
           // Map imported data to Supabase schema
-          const leadsToInsert = jsonData.map((row) => {
-            const generatePersonId = () => {
-              const timestamp = Date.now().toString().slice(-6);
-              const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-              return `LD${timestamp}${random}`;
+          const leadsToInsert = await Promise.all(jsonData.map(async (row) => {
+            const generatePersonId = async () => {
+              const year = new Date().getFullYear();
+              const prefix = `LEAD-${year}-`;
+              
+              // Count existing leads for this year
+              const { data, error } = await supabase
+                .from('leads')
+                .select('lead_id', { count: 'exact' })
+                .like('lead_id', `${prefix}%`);
+              
+              if (error) {
+                console.error('Error counting leads:', error);
+                return `${prefix}0001`;
+              }
+              
+              const count = data?.length || 0;
+              const nextNumber = (count + 1).toString().padStart(4, '0');
+              return `${prefix}${nextNumber}`;
             };
 
             return {
-              lead_id: generatePersonId(),
+              lead_id: await generatePersonId(),
               company: row['Company Name'] || row['Company'] || row['company'] || row['Organization'] || '',
               contact: row['Contact Person'] || row['Contact'] || row['contact'] || row['contactPerson'] || '',
               phone: row['Contact Number'] || row['Phone'] || row['phone'] || row['Mobile'] || row['mobile'] || '',
@@ -493,8 +540,9 @@ const Leads = () => {
               value: Number(row['Value'] || row['value'] || 0) || 0,
               remarks: row['Initial Remarks'] || row['Remarks'] || row['remarks'] || row['initialRemarks'] || '',
               inquiry_date: normalizeDate(row['Inquiry Date'] || row['inquiryDate'] || row['inquiry_date']),
+              next_follow_up_date: row['Next Follow-up Date'] || row['nextFollowUpDate'] || row['next_follow_up_date'] || null,
             };
-          });
+          }));
 
           // Insert all leads to Supabase
           const { error: insertError } = await supabase
@@ -570,6 +618,13 @@ const Leads = () => {
             className="hidden"
           />
           <button
+            onClick={fetchLeads}
+            className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            title="Refresh leads"
+          >
+            <RotateCw className="h-4 w-4" /> Refresh
+          </button>
+          <button
             onClick={handleDownloadTemplate}
             className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
             title="Download leads template"
@@ -623,6 +678,7 @@ const Leads = () => {
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">STATE</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">COUNTRY</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">ASSIGNED TO</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">NEXT FOLLOW-UP</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">STATUS</th>
               </tr>
             </thead>
@@ -643,6 +699,9 @@ const Leads = () => {
                   <td className="px-4 py-3 text-sm text-muted-foreground">{lead.state}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{lead.country}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{lead.assignedTo}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                    {lead.nextFollowUpDate || '-'}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(lead.status)}`}>
                       {lead.status}
@@ -738,6 +797,12 @@ const Leads = () => {
                   <div>
                     <p className="text-xs text-muted-foreground">Inquiry Date</p>
                     <p className="text-sm font-medium text-foreground">{selectedLead.inquiryDate}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Next Follow-up Date</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {selectedLead.nextFollowUpDate || 'Not set'}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">City</p>
@@ -1001,6 +1066,18 @@ const Leads = () => {
                 />
               </div>
 
+              {/* Next Follow-up Date */}
+              <div>
+                <Label htmlFor="edit-nextFollowUpDate">Next Follow-up Date</Label>
+                <Input
+                  id="edit-nextFollowUpDate"
+                  type="date"
+                  value={newLead.nextFollowUpDate}
+                  onChange={(e) => setNewLead({ ...newLead, nextFollowUpDate: e.target.value })}
+                  className="mt-1"
+                />
+              </div>
+
               {/* Action Buttons */}
               <div className="flex gap-2">
                 <Button 
@@ -1183,6 +1260,18 @@ const Leads = () => {
                 onChange={(e) => setNewLead({ ...newLead, initialRemarks: e.target.value })}
                 placeholder="Enter initial remarks..."
                 className="mt-1 min-h-[80px] resize-none"
+              />
+            </div>
+
+            {/* Next Follow-up Date */}
+            <div>
+              <Label htmlFor="nextFollowUpDate">Next Follow-up Date</Label>
+              <Input
+                id="nextFollowUpDate"
+                type="date"
+                value={newLead.nextFollowUpDate}
+                onChange={(e) => setNewLead({ ...newLead, nextFollowUpDate: e.target.value })}
+                className="mt-1"
               />
             </div>
 
