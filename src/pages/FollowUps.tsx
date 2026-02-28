@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/lib/supabase";
+import { formatDateDDMMYYYY } from "@/lib/utils";
 
 interface FollowUp {
   id: string;
@@ -456,7 +457,7 @@ const FollowUps = () => {
                   <h3 className="text-lg font-semibold text-foreground">{fu.company}</h3>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                     <Calendar className="h-3 w-3" />
-                    <span>{fu.date}</span>
+                    <span>{formatDateDDMMYYYY(fu.date)}</span>
                   </div>
                 </div>
 
@@ -479,7 +480,7 @@ const FollowUps = () => {
 
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Calendar className="h-3 w-3" />
-                    <span>{fu.nextFollowUpDate}</span>
+                    <span>{formatDateDDMMYYYY(fu.nextFollowUpDate)}</span>
                   </div>
                 </div>
 
@@ -690,7 +691,7 @@ const FollowUps = () => {
                               </div>
                               <div>
                                 <Label className="text-sm font-medium text-gray-700">Follow-up Date</Label>
-                                <p className="mt-1 text-sm text-gray-900">{history.follow_up_date || '-'}</p>
+                                <p className="mt-1 text-sm text-gray-900">{history.follow_up_date ? formatDateDDMMYYYY(history.follow_up_date) : '-'}</p>
                               </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
@@ -700,7 +701,7 @@ const FollowUps = () => {
                               </div>
                               <div>
                                 <Label className="text-sm font-medium text-gray-700">Next Follow-up Date</Label>
-                                <p className="mt-1 text-sm text-gray-900">{history.next_follow_up_date || '-'}</p>
+                                <p className="mt-1 text-sm text-gray-900">{history.next_follow_up_date ? formatDateDDMMYYYY(history.next_follow_up_date) : '-'}</p>
                               </div>
                             </div>
                           </div>

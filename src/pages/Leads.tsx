@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { formatDateDDMMYYYY } from "@/lib/utils";
 
 interface Lead {
   id: string;
@@ -410,7 +411,7 @@ const Leads = () => {
   const handleDownloadTemplate = () => {
     const templateData = leadsData.map((lead) => ({
       "Lead ID": lead.leadId,
-      "Date": lead.createdAt,
+      "Date": formatDateDDMMYYYY(lead.createdAt),
       "Company Name": lead.company,
       "Contact Person": lead.contact,
       "Contact Number": lead.phone,
@@ -424,8 +425,8 @@ const Leads = () => {
       "Product Interested": lead.productInterested,
       "Initial Remarks": lead.remarks,
       "Value": lead.value,
-      "Inquiry Date": lead.inquiryDate,
-      "Next Follow-up Date": lead.nextFollowUpDate,
+      "Inquiry Date": formatDateDDMMYYYY(lead.inquiryDate),
+      "Next Follow-up Date": formatDateDDMMYYYY(lead.nextFollowUpDate),
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(templateData);
@@ -689,7 +690,7 @@ const Leads = () => {
                   onClick={() => handleRowClick(lead)}
                   className="border-b border-border last:border-0 hover:bg-accent/50 cursor-pointer"
                 >
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{lead.createdAt}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{formatDateDDMMYYYY(lead.createdAt)}</td>
                   <td className="px-4 py-3 text-sm font-medium text-foreground">{lead.company}</td>
                   <td className="px-4 py-3">
                     <p className="text-sm text-foreground">{lead.contact}</p>
@@ -700,7 +701,7 @@ const Leads = () => {
                   <td className="px-4 py-3 text-sm text-muted-foreground">{lead.country}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{lead.assignedTo}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">
-                    {lead.nextFollowUpDate || '-'}
+                    {lead.nextFollowUpDate ? formatDateDDMMYYYY(lead.nextFollowUpDate) : '-'}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(lead.status)}`}>
@@ -796,12 +797,12 @@ const Leads = () => {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Inquiry Date</p>
-                    <p className="text-sm font-medium text-foreground">{selectedLead.inquiryDate}</p>
+                    <p className="text-sm font-medium text-foreground">{formatDateDDMMYYYY(selectedLead.inquiryDate)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Next Follow-up Date</p>
                     <p className="text-sm font-medium text-foreground">
-                      {selectedLead.nextFollowUpDate || 'Not set'}
+                      {selectedLead.nextFollowUpDate ? formatDateDDMMYYYY(selectedLead.nextFollowUpDate) : 'Not set'}
                     </p>
                   </div>
                   <div>

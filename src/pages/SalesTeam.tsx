@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Mail, Phone, Plus, Search, CheckCircle2, Loader2, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { Mail, Phone, Plus, Search, CheckCircle2, Loader2, AlertCircle, Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,8 +16,16 @@ const SalesTeam = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddPersonDialogOpen, setIsAddPersonDialogOpen] = useState(false);
+  const [isEditPersonDialogOpen, setIsEditPersonDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [editingPerson, setEditingPerson] = useState<SalesPerson | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    password: ""
+  });
   const [newPerson, setNewPerson] = useState({
     name: "",
     phone: "",
@@ -37,8 +45,29 @@ const SalesTeam = () => {
     }
   }, [isAddPersonDialogOpen]);
 
-  const generatePersonId = () => {
-    return `SP${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+  useEffect(() => {
+    if (isEditPersonDialogOpen && editingPerson) {
+      setEditFormData({
+        name: editingPerson.name,
+        phone: editingPerson.phone,
+        email: editingPerson.email,
+        password: editingPerson.password
+      });
+    }
+  }, [isEditPersonDialogOpen, editingPerson]);
+
+  const generatePersonId = async () => {
+    const { data, error } = await supabase
+      .from('sales_team')
+      .select('person_id');
+
+    if (error) {
+      console.error('Error counting sales team members:', error);
+      return 'SALES-TEAM-0001';
+    }
+
+    const count = (data?.length || 0) + 1;
+    return `SALES-TEAM-${String(count).padStart(4, '0')}`;
   };
 
   const fetchSalesTeam = async () => {
@@ -51,7 +80,32 @@ const SalesTeam = () => {
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
-      setSalesTeam(data || []);
+
+      // Fetch leads data to calculate statistics for each sales person
+      const { data: leadsData, error: leadsError } = await supabase
+        .from('leads')
+        .select('assigned_to, status');
+
+      if (leadsError) {
+        console.error('Error fetching leads:', leadsError);
+      }
+
+      // Update sales team data with calculated statistics
+      const updatedData = (data || []).map((person) => {
+        const personLeads = leadsData?.filter(lead => lead.assigned_to === person.name) || [];
+        const totalLeads = personLeads.length;
+        const convertedLeads = personLeads.filter(lead => lead.status === 'Converted').length;
+        const conversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
+
+        return {
+          ...person,
+          leads: totalLeads,
+          converted: convertedLeads,
+          rate: `${conversionRate}%`
+        };
+      });
+
+      setSalesTeam(updatedData || []);
     } catch (err) {
       console.error('Error fetching sales team:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch sales team');
@@ -90,6 +144,72 @@ const SalesTeam = () => {
     setShowPassword(false);
   };
 
+  const handleOpenEditDialog = (person: SalesPerson) => {
+    setEditingPerson(person);
+    setIsEditPersonDialogOpen(true);
+  };
+
+  const handleCloseEditDialog = () => {
+    setIsEditPersonDialogOpen(false);
+    setEditingPerson(null);
+    setEditFormData({ name: "", phone: "", email: "", password: "" });
+  };
+
+  const handleUpdateSalesPerson = async () => {
+    if (!editingPerson) return;
+    
+    if (!editFormData.name.trim() || !editFormData.email.trim() || !editFormData.phone.trim() || !editFormData.password.trim()) {
+      setError('All fields are required');
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+      setError(null);
+
+      const { error: updateError } = await supabase
+        .from('sales_team')
+        .update({
+          name: editFormData.name.trim(),
+          email: editFormData.email.trim(),
+          phone: editFormData.phone.trim(),
+          password: editFormData.password.trim(),
+        })
+        .eq('id', editingPerson.id);
+
+      if (updateError) throw updateError;
+
+      await fetchSalesTeam();
+      handleCloseEditDialog();
+    } catch (err) {
+      console.error('Error updating sales person:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update sales person');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleDeleteSalesPerson = async (person: SalesPerson) => {
+    if (!confirm(`Are you sure you want to delete ${person.name}?`)) {
+      return;
+    }
+
+    try {
+      setError(null);
+      const { error: deleteError } = await supabase
+        .from('sales_team')
+        .delete()
+        .eq('id', person.id);
+
+      if (deleteError) throw deleteError;
+
+      await fetchSalesTeam();
+    } catch (err) {
+      console.error('Error deleting sales person:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete sales person');
+    }
+  };
+
   const handleCreateSalesPerson = async () => {
     // Validate input
     if (!newPerson.name.trim() || !newPerson.email.trim() || !newPerson.phone.trim() || !newPerson.password.trim()) {
@@ -101,7 +221,7 @@ const SalesTeam = () => {
       setIsCreating(true);
       setError(null);
 
-      const personId = generatePersonId();
+      const personId = await generatePersonId();
       const initials = getInitials(newPerson.name);
 
       const insertData = {
@@ -232,9 +352,10 @@ const SalesTeam = () => {
                   {person.avatar}
                 </div>
 
-                {/* Name */}
+                {/* Name and ID */}
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-[15px] font-bold text-gray-900 leading-none">{person.name}</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900 leading-none mb-0.5">{person.name}</h3>
+                  <p className="text-[11px] text-blue-600 font-semibold leading-none">ID: {person.person_id}</p>
                 </div>
 
                 {/* Status Badge */}
@@ -266,24 +387,136 @@ const SalesTeam = () => {
               </div>
 
               {/* Statistics */}
-              <div className="flex items-start gap-6 pt-2 border-t border-gray-200">
-                <div>
-                  <p className="text-xl font-bold text-gray-900">{person.leads}</p>
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Leads</p>
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-green-600">{person.converted}</p>
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Converted</p>
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-red-600">{person.rate}</p>
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Rate</p>
+              <div className="pt-2 border-t border-gray-200">
+                <div className="flex items-start gap-6 justify-between">
+                  <div className="flex items-start gap-6">
+                    <div>
+                      <p className="text-xl font-bold text-gray-900">{person.leads}</p>
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wide">Leads</p>
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-green-600">{person.converted}</p>
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wide">Converted</p>
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-red-600">{person.rate}</p>
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wide">Rate</p>
+                    </div>
+                  </div>
+                  {userRole === 'admin' && (
+                    <div className="flex items-center gap-1 mt-2">
+                      <button
+                        onClick={() => handleOpenEditDialog(person)}
+                        className="p-1 rounded hover:bg-gray-100 text-gray-600 hover:text-blue-600 transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSalesPerson(person)}
+                        className="p-1 rounded hover:bg-gray-100 text-gray-600 hover:text-red-600 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Edit Sales Person Dialog */}
+      <Dialog open={isEditPersonDialogOpen} onOpenChange={setIsEditPersonDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Sales Person</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Full Name */}
+            <div>
+              <Label htmlFor="edit-name">Full Name *</Label>
+              <Input
+                id="edit-name"
+                value={editFormData.name}
+                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                placeholder="Enter full name"
+                className="mt-1 rounded-lg"
+              />
+            </div>
+
+            {/* Phone and Email side by side */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Phone */}
+              <div>
+                <Label htmlFor="edit-phone">Mobile Number *</Label>
+                <Input
+                  id="edit-phone"
+                  value={editFormData.phone}
+                  onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                  placeholder="+91 XXXXX XXXXX"
+                  className="mt-1 rounded-lg"
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <Label htmlFor="edit-email">Email ID *</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={editFormData.email}
+                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                  placeholder="Your Email"
+                  className="mt-1 rounded-lg"
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+
+            {/* Password */}
+            <div>
+              <Label htmlFor="edit-password">Password *</Label>
+              <div className="relative mt-1">
+                <Input
+                  id="edit-password"
+                  type={showPassword ? "text" : "password"}
+                  value={editFormData.password}
+                  onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })}
+                  placeholder="Your Password"
+                  className="mt-1 rounded-lg pr-10"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Update Button */}
+            <Button 
+              className="w-full bg-red-600 hover:bg-red-700 text-white rounded-lg"
+              onClick={handleUpdateSalesPerson}
+              disabled={isCreating}
+            >
+              {isCreating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                'Update Sales Person'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Sales Person Dialog */}
       <Dialog open={isAddPersonDialogOpen} onOpenChange={setIsAddPersonDialogOpen}>

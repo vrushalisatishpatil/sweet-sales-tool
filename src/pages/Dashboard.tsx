@@ -42,6 +42,8 @@ const Dashboard = () => {
     company: string;
     contact: string;
     source: string | null;
+    assigned_to: string | null;
+    next_follow_up_date: string | null;
     status: LeadStatus;
     created_at: string;
   }>>([]);
@@ -58,11 +60,19 @@ const Dashboard = () => {
       try {
         const { data, error } = await supabase
           .from("sales_team")
-          .select("id, name, leads, converted, status")
+          .select("id, name, status")
           .order("name", { ascending: true });
 
         if (error) throw error;
-        setSalesTeamData(data || []);
+        setSalesTeamData(
+          (data || []).map((person) => ({
+            id: person.id,
+            name: person.name,
+            leads: 0,
+            converted: 0,
+            status: person.status,
+          }))
+        );
       } catch (err) {
         console.error("Error fetching sales team for dashboard:", err);
       }
@@ -72,7 +82,7 @@ const Dashboard = () => {
       try {
         let query = supabase
           .from("leads")
-          .select("id, company, contact, source, status, created_at");
+          .select("id, company, contact, source, assigned_to, next_follow_up_date, status, created_at");
         
         // Filter by assigned salesperson if not admin
         if (userRole === 'salesperson' && userName) {
@@ -88,6 +98,8 @@ const Dashboard = () => {
           company: string;
           contact: string;
           source: string | null;
+          assigned_to: string | null;
+          next_follow_up_date: string | null;
           status: LeadStatus;
           created_at: string;
         }>);
@@ -98,15 +110,28 @@ const Dashboard = () => {
 
     fetchSalesTeam();
     fetchLeads();
-  }, []);
+  }, [userRole, userName]);
 
-  const salesPerformanceData = salesTeamData.map((person) => ({
-    name: person.name,
-    leads: person.leads,
-    conversions: person.converted,
-  }));
+  const visibleSalesTeam =
+    userRole === "admin"
+      ? salesTeamData
+      : salesTeamData.filter((person) => person.name === userName);
+
+  const salesPerformanceData = visibleSalesTeam.map((person) => {
+    const personLeads = leadsData.filter((lead) => lead.assigned_to === person.name);
+    const personConversions = personLeads.filter((lead) => lead.status === "Converted").length;
+
+    return {
+      name: person.name,
+      leads: personLeads.length,
+      conversions: personConversions,
+    };
+  });
 
   const activeSalesCount = salesTeamData.filter((person) => person.status === "Active").length;
+
+  const todayDate = new Date().toISOString().split("T")[0];
+  const todaysFollowUpsCount = leadsData.filter((lead) => lead.next_follow_up_date === todayDate).length;
 
   const statusOrder: LeadStatus[] = ["New", "Connected", "Interested", "Not Interested", "Detail Share", "Re-connected", "Negotiation", "Converted", "Irrelevant", "Lost"];
   const leadStatusDistribution = statusOrder.map((status) => ({
@@ -120,7 +145,7 @@ const Dashboard = () => {
   const statCards = [
     { title: "Total Leads", value: leadsData.length, change: "", positive: true, icon: Target, iconColor: "text-primary" },
     { title: "Conversions", value: leadsData.filter((lead) => lead.status === "Converted").length, change: "", positive: true, icon: CheckCircle, iconColor: "text-status-converted" },
-    { title: "Today's Follow-ups", value: 0, change: "", positive: false, icon: Clock, iconColor: "text-status-followup" },
+    { title: "Today's Follow-ups", value: todaysFollowUpsCount, change: "", positive: false, icon: Clock, iconColor: "text-status-followup" },
     { title: "Active Sales Team", value: activeSalesCount, change: "", positive: true, icon: Users, iconColor: "text-status-new" },
   ];
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Plus, Search, ListTodo, Clock, AlertTriangle, CheckCircle2, User, Calendar, Building2, Filter, Check, ChevronDown } from "lucide-react";
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/lib/supabase";
+import { formatDateDDMMYYYY } from "@/lib/utils";
 import type { TaskPriority, TaskStatus } from "@/types/database.types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -421,7 +422,7 @@ const AssignTasks = () => {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Calendar className="h-4 w-4" />
-                    <span>Due: {task.dueDate}</span>
+                    <span>Due: {formatDateDDMMYYYY(task.dueDate)}</span>
                   </div>
                 </div>
               </div>

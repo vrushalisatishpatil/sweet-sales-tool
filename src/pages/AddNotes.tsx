@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Search, FileText, Building2, User, Calendar, X, Filter, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -6,16 +6,28 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { supabase } from "@/lib/supabase";
+import { useUser } from "@/context/UserContext";
+import { formatDateDDMMYYYY } from "@/lib/utils";
+
+type TodoStatus = "Pending" | "In Progress" | "Completed";
+
+interface TodoItem {
+  id: string;
+  title: string;
+  content: string;
+  category: TodoStatus;
+  company: string;
+  createdBy: string;
+  createdAt: string;
+}
 
 const AddNotes = () => {
-  const [notesData, setNotesData] = useState<Array<{
-    id: string;
-    title: string;
-    content: string;
-    category: string;
-    company: string;
-    createdAt: string;
-  }>>([]);
+  const { userRole, userEmail } = useUser();
+  const [notesData, setNotesData] = useState<TodoItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [ownerIdentifier, setOwnerIdentifier] = useState<string | null>(null);
+  const [creatorLabel, setCreatorLabel] = useState<string>("Admin");
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [filterDropdown, setFilterDropdown] = useState("All To Do's");
@@ -23,8 +35,77 @@ const AddNotes = () => {
   const [newNote, setNewNote] = useState({
     title: "",
     content: "",
-    category: ""
+    category: "Pending" as TodoStatus
   });
+
+  useEffect(() => {
+    initializeUserContext();
+  }, [userRole, userEmail]);
+
+  useEffect(() => {
+    if (ownerIdentifier) {
+      fetchTodos(ownerIdentifier);
+    }
+  }, [ownerIdentifier]);
+
+  const initializeUserContext = async () => {
+    if (userRole === "admin") {
+      setOwnerIdentifier("admin");
+      setCreatorLabel("Admin");
+      return;
+    }
+
+    if (!userEmail) {
+      setOwnerIdentifier(null);
+      setCreatorLabel("Sales Person");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("sales_team")
+      .select("person_id")
+      .eq("email", userEmail)
+      .maybeSingle();
+
+    if (error || !data?.person_id) {
+      setOwnerIdentifier(userEmail);
+      setCreatorLabel(userEmail);
+      return;
+    }
+
+    setOwnerIdentifier(data.person_id);
+    setCreatorLabel(data.person_id);
+  };
+
+  const fetchTodos = async (ownerKey: string) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("todos")
+        .select("*")
+        .eq("owner_identifier", ownerKey)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const transformed: TodoItem[] = (data || []).map((todo) => ({
+        id: todo.id,
+        title: todo.title,
+        content: todo.content || "",
+        category: (todo.status || "Pending") as TodoStatus,
+        company: todo.company || "",
+        createdBy: todo.created_by || "",
+        createdAt: formatDateDDMMYYYY(todo.created_at),
+      }));
+
+      setNotesData(transformed);
+    } catch (error) {
+      console.error("Error fetching todos:", error);
+      setNotesData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleOpenAddNoteDialog = () => {
     setIsAddNoteDialogOpen(true);
@@ -35,22 +116,75 @@ const AddNotes = () => {
     setNewNote({
       title: "",
       content: "",
-      category: ""
+      category: "Pending"
     });
   };
 
-  const handleCreateNote = () => {
-    console.log("New note created:", newNote);
-    // Add your note creation logic here
-    handleCloseAddNoteDialog();
+  const handleCreateNote = async () => {
+    if (!ownerIdentifier || !newNote.title.trim()) return;
+
+    try {
+      const { error } = await supabase.from("todos").insert([
+        {
+          title: newNote.title.trim(),
+          content: newNote.content.trim() || null,
+          status: newNote.category,
+          company: null,
+          created_by: creatorLabel,
+          owner_identifier: ownerIdentifier,
+        },
+      ]);
+
+      if (error) throw error;
+
+      await fetchTodos(ownerIdentifier);
+      handleCloseAddNoteDialog();
+    } catch (error) {
+      console.error("Error creating todo:", error);
+      alert("Failed to create to-do. Please try again.");
+    }
   };
 
-  const handleStatusChange = (noteId: string, newStatus: string) => {
-    setNotesData(
-      notesData.map((note) =>
-        note.id === noteId ? { ...note, category: newStatus } : note
-      )
-    );
+  const handleStatusChange = async (noteId: string, newStatus: string) => {
+    if (!ownerIdentifier) return;
+
+    try {
+      const { error } = await supabase
+        .from("todos")
+        .update({ status: newStatus })
+        .eq("id", noteId)
+        .eq("owner_identifier", ownerIdentifier);
+
+      if (error) throw error;
+
+      setNotesData((prev) =>
+        prev.map((note) =>
+          note.id === noteId ? { ...note, category: newStatus as TodoStatus } : note
+        )
+      );
+    } catch (error) {
+      console.error("Error updating todo status:", error);
+      alert("Failed to update status.");
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (!ownerIdentifier) return;
+
+    try {
+      const { error } = await supabase
+        .from("todos")
+        .delete()
+        .eq("id", noteId)
+        .eq("owner_identifier", ownerIdentifier);
+
+      if (error) throw error;
+
+      setNotesData((prev) => prev.filter((note) => note.id !== noteId));
+    } catch (error) {
+      console.error("Error deleting todo:", error);
+      alert("Failed to delete to-do.");
+    }
   };
 
   const handleFilterChange = (value: string) => {
@@ -77,6 +211,14 @@ const AddNotes = () => {
   const completedCount = notesData.filter(n => n.category === "Completed").length;
   const inProgressCount = notesData.filter(n => n.category === "In Progress").length;
   const pendingCount = notesData.filter(n => n.category === "Pending").length;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-sm text-muted-foreground">Loading to do's...</div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -216,7 +358,10 @@ const AddNotes = () => {
             } border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow relative`}
           >
             {/* Close button */}
-            <button className="absolute top-3 right-3 text-gray-400 hover:text-gray-600">
+            <button
+              onClick={() => handleDeleteNote(note.id)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+            >
               <X className="h-4 w-4" />
             </button>
 
@@ -318,9 +463,9 @@ const AddNotes = () => {
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
                   <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="In Progress">In Progress</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
             </div>

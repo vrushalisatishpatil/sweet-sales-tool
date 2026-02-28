@@ -14,6 +14,7 @@ export type LeadStatus =
 
 export type TaskPriority = "High" | "Medium" | "Low" | "Urgent";
 export type TaskStatus = "Pending" | "In Progress" | "Completed";
+export type TodoStatus = "Pending" | "In Progress" | "Completed";
 
 export interface Database {
   public: {
@@ -114,6 +115,41 @@ export interface Database {
           priority?: TaskPriority;
           status?: TaskStatus;
           due_date?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      todos: {
+        Row: {
+          id: string;
+          title: string;
+          content: string | null;
+          status: TodoStatus;
+          company: string | null;
+          created_by: string;
+          owner_identifier: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          content?: string | null;
+          status?: TodoStatus;
+          company?: string | null;
+          created_by: string;
+          owner_identifier: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          content?: string | null;
+          status?: TodoStatus;
+          company?: string | null;
+          created_by?: string;
+          owner_identifier?: string;
           created_at?: string;
           updated_at?: string;
         };
