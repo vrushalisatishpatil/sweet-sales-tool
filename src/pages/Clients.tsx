@@ -1,7 +1,8 @@
-import { Search, Upload, Plus, Users, X, Download } from "lucide-react";
-import { useState, useRef } from "react";
+import { Search, Upload, Plus, Users, X, Download, Edit, Trash2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import * as XLSX from 'xlsx';
 import { useUser } from "@/context/UserContext";
+import { supabase } from "@/lib/supabase";
 import {
   Dialog,
   DialogContent,
@@ -15,43 +16,41 @@ import { Button } from "@/components/ui/button";
 interface Client {
   id: string;
   company: string;
-  pincode: string;
-  city: string;
-  state: string;
-  mainArea: string;
-  multipleAreas: string[];
+  pincode: string | null;
+  state: string | null;
+  main_area: string | null;
+  sub_areas: string[];
 }
 
-// Function to merge duplicate clients with same company, pincode, state, and mainArea
+// Function to merge duplicate clients with same company, pincode, state, and main_area
 const mergeDuplicateClients = (clients: Client[]): Client[] => {
   const clientMap = new Map<string, Client>();
   
   clients.forEach((client) => {
-    // Create a unique key based on company, pincode, state, and mainArea
-    const key = `${client.company}|${client.pincode}|${client.state}|${client.mainArea}`;
+    // Create a unique key based on company, pincode, state, and main_area
+    const key = `${client.company}|${client.pincode}|${client.state}|${client.main_area}`;
     
     if (clientMap.has(key)) {
       // Merge sub-areas
       const existingClient = clientMap.get(key)!;
-      const mergedAreas = [...new Set([...existingClient.multipleAreas, ...client.multipleAreas])];
-      existingClient.multipleAreas = mergedAreas;
+      const mergedAreas = [...new Set([...existingClient.sub_areas, ...client.sub_areas])];
+      existingClient.sub_areas = mergedAreas;
     } else {
       // Add new client
       clientMap.set(key, { ...client });
     }
   });
   
-  // Convert map back to array and reassign IDs
-  return Array.from(clientMap.values()).map((client, index) => ({
-    ...client,
-    id: String(index + 1),
-  }));
+  // Return map values as array
+  return Array.from(clientMap.values());
 };
 
 const Clients = () => {
   const { userRole } = useUser();
   const [clientsData, setClientsData] = useState<Client[]>([]);
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
+  const [isEditClientOpen, setIsEditClientOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [partyName, setPartyName] = useState("");
   const [pincode, setPincode] = useState("");
@@ -60,38 +59,160 @@ const Clients = () => {
   const [multipleAreas, setMultipleAreas] = useState<string[]>([]);
   const [newAreaInput, setNewAreaInput] = useState("");
   const [areaType, setAreaType] = useState<"main" | "multiple">("main");
+  const [isLoading, setIsLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAddClient = () => {
+  // Generate client ID in format CLIENT-YYYY-NNNN
+  const generateClientId = async (): Promise<string> => {
+    const currentYear = new Date().getFullYear();
+    const yearPrefix = `CLIENT-${currentYear}-`;
+    
+    try {
+      // Get all clients with current year to count them
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id')
+        .like('id', `${yearPrefix}%`);
+      
+      if (error) {
+        console.error('Error counting clients:', error);
+        return `${yearPrefix}0001`; // Fallback to 0001
+      }
+      
+      const count = data?.length || 0;
+      const nextNumber = count + 1;
+      const paddedNumber = String(nextNumber).padStart(4, '0');
+      
+      return `${yearPrefix}${paddedNumber}`;
+    } catch (error) {
+      console.error('Error generating client ID:', error);
+      return `${yearPrefix}0001`; // Fallback to 0001
+    }
+  };
+
+  // Fetch clients from Supabase
+  const fetchClients = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setClientsData(data || []);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch clients on mount
+  useEffect(() => {
+    fetchClients();
+  }, []);
+
+  const handleAddClient = async () => {
     if (!partyName.trim()) return;
     
-    const newClient: Client = {
-      id: String(clientsData.length + 1),
-      company: partyName,
-      contact: partyName,
-      email: `contact@${partyName.toLowerCase().replace(/\s/g, '')}.com`,
-      phone: "9999999999",
-      industry: "General",
-      convertedDate: new Date().toISOString().split('T')[0],
-      value: 0,
-      pincode: pincode,
-      state: state,
-      mainArea: mainArea,
-      multipleAreas: multipleAreas,
-    };
+    try {
+      const newId = await generateClientId();
+      
+      const { error } = await supabase
+        .from('clients')
+        .insert({
+          id: newId,
+          company: partyName,
+          pincode: pincode || null,
+          state: state || null,
+          main_area: mainArea || null,
+          sub_areas: multipleAreas,
+        });
+      
+      if (error) throw error;
+      
+      // Fetch updated clients list
+      await fetchClients();
+      
+      // Reset form
+      setIsAddClientOpen(false);
+      setPartyName("");
+      setPincode("");
+      setState("");
+      setMainArea("");
+      setMultipleAreas([]);
+      setNewAreaInput("");
+      setAreaType("main");
+    } catch (error) {
+      console.error('Error adding client:', error);
+      alert('Error adding client. Please try again.');
+    }
+  };
+
+  const handleEditClient = async () => {
+    if (!partyName.trim() || !editingClient) return;
     
-    const mergedClients = mergeDuplicateClients([...clientsData, newClient]);
-    setClientsData(mergedClients);
-    
-    // Reset form
-    setIsAddClientOpen(false);
-    setPartyName("");
-    setPincode("");
-    setState("");
-    setMainArea("");
-    setMultipleAreas([]);
-    setNewAreaInput("");
-    setAreaType("main");
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .update({
+          company: partyName,
+          pincode: pincode || null,
+          state: state || null,
+          main_area: mainArea || null,
+          sub_areas: multipleAreas,
+        })
+        .eq('id', editingClient.id);
+      
+      if (error) throw error;
+      
+      // Fetch updated clients list
+      await fetchClients();
+      
+      // Reset form
+      setIsEditClientOpen(false);
+      setEditingClient(null);
+      setPartyName("");
+      setPincode("");
+      setState("");
+      setMainArea("");
+      setMultipleAreas([]);
+      setNewAreaInput("");
+      setAreaType("main");
+    } catch (error) {
+      console.error('Error updating client:', error);
+      alert('Error updating client. Please try again.');
+    }
+  };
+
+  const handleDeleteClient = async (clientId: string) => {
+    if (window.confirm("Are you sure you want to delete this client?")) {
+      try {
+        const { error } = await supabase
+          .from('clients')
+          .delete()
+          .eq('id', clientId);
+        
+        if (error) throw error;
+        
+        // Fetch updated clients list
+        await fetchClients();
+      } catch (error) {
+        console.error('Error deleting client:', error);
+        alert('Error deleting client. Please try again.');
+      }
+    }
+  };
+
+  const openEditDialog = (client: Client) => {
+    setEditingClient(client);
+    setPartyName(client.company);
+    setPincode(client.pincode || "");
+    setState(client.state || "");
+    setMainArea(client.main_area || "");
+    setMultipleAreas(client.sub_areas);
+    setIsEditClientOpen(true);
   };
 
   const handleImportClick = () => {
@@ -102,10 +223,10 @@ const Clients = () => {
     // Create template with actual clients data from the software
     const templateData = clientsData.map(client => ({
       'Company': client.company,
-      'Pincode': client.pincode,
-      'State': client.state,
-      'Main Area': client.mainArea,
-      'Sub Area': client.multipleAreas.join(';'),
+      'Pincode': client.pincode || '',
+      'State': client.state || '',
+      'Main Area': client.main_area || '',
+      'Sub Area': client.sub_areas.join(';'),
     }));
 
     // Add 3 empty rows for users to add more clients
@@ -133,7 +254,7 @@ const Clients = () => {
     XLSX.writeFile(workbook, 'clients-data.xlsx');
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -148,9 +269,9 @@ const Clients = () => {
 
     const reader = new FileReader();
     
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
-        let importedClients: Client[] = [];
+        let importedClients: Omit<Client, 'id'>[] = [];
 
         if (isExcel) {
           // Parse Excel file
@@ -165,7 +286,7 @@ const Clients = () => {
             return;
           }
 
-          importedClients = rows.map((row, index) => {
+          importedClients = rows.map((row) => {
             // Get values from row - handles different column name variations
             const company = row['Company'] || row['company'] || '';
             const pincode = row['Pincode'] || row['pincode'] || '';
@@ -178,18 +299,11 @@ const Clients = () => {
               : [];
 
             return {
-              id: String(clientsData.length + index + 1),
               company: company || 'Unnamed Company',
-              contact: company || 'Contact',
-              email: `contact@${(company || 'company').toLowerCase().replace(/\s/g, '')}.com`,
-              phone: '9999999999',
-              industry: 'General',
-              convertedDate: new Date().toISOString().split('T')[0],
-              value: 0,
-              pincode: pincode || '',
-              state: state || '',
-              mainArea: mainArea || '',
-              multipleAreas: multipleAreas,
+              pincode: pincode || null,
+              state: state || null,
+              main_area: mainArea || null,
+              sub_areas: multipleAreas,
             };
           });
         } else {
@@ -209,7 +323,7 @@ const Clients = () => {
           // Skip header row
           const dataLines = lines.slice(1);
           
-          importedClients = dataLines.map((line, index) => {
+          importedClients = dataLines.map((line) => {
             const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
             
             // Expected columns: Company, Pincode, State, Main Area, Sub Area
@@ -220,26 +334,44 @@ const Clients = () => {
               : [];
             
             return {
-              id: String(clientsData.length + index + 1),
               company: company || 'Unnamed Company',
-              contact: company || 'Contact',
-              email: `contact@${(company || 'company').toLowerCase().replace(/\s/g, '')}.com`,
-              phone: '9999999999',
-              industry: 'General',
-              convertedDate: new Date().toISOString().split('T')[0],
-              value: 0,
-              pincode: pincode || '',
-              state: state || '',
-              mainArea: mainArea || '',
-              multipleAreas: multipleAreas,
+              pincode: pincode || null,
+              state: state || null,
+              main_area: mainArea || null,
+              sub_areas: multipleAreas,
             };
           });
         }
         
-        // Merge clients with same company, pincode, state, and mainArea
-        const mergedClients = mergeDuplicateClients([...clientsData, ...importedClients]);
-        setClientsData(mergedClients);
-        alert(`Successfully imported ${importedClients.length} client(s)`);
+        // Save clients to Supabase
+        if (importedClients.length > 0) {
+          // Generate IDs for all imported clients
+          const currentYear = new Date().getFullYear();
+          const yearPrefix = `CLIENT-${currentYear}-`;
+          
+          // Get the current count of clients for this year
+          const { data: existingData } = await supabase
+            .from('clients')
+            .select('id', { count: 'exact' })
+            .like('id', `${yearPrefix}%`);
+          
+          let nextNumber = (existingData?.length || 0) + 1;
+          
+          const clientsWithIds = importedClients.map((client) => ({
+            ...client,
+            id: `${yearPrefix}${String(nextNumber++).padStart(4, '0')}`,
+          }));
+          
+          const { error } = await supabase
+            .from('clients')
+            .insert(clientsWithIds);
+          
+          if (error) throw error;
+          
+          // Fetch updated clients list
+          await fetchClients();
+          alert(`Successfully imported ${importedClients.length} client(s)`);
+        }
         
         // Reset file input
         if (fileInputRef.current) {
@@ -347,6 +479,9 @@ const Clients = () => {
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">State</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Main Area</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Sub Area</th>
+                {userRole === "admin" && (
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -354,26 +489,46 @@ const Clients = () => {
                 const query = searchQuery.toLowerCase();
                 return (
                   client.company.toLowerCase().includes(query) ||
-                  client.pincode.toLowerCase().includes(query) ||
-                  client.state.toLowerCase().includes(query) ||
-                  client.mainArea.toLowerCase().includes(query) ||
-                  client.multipleAreas.some(area => area.toLowerCase().includes(query))
+                  (client.pincode?.toLowerCase().includes(query) || false) ||
+                  (client.state?.toLowerCase().includes(query) || false) ||
+                  (client.main_area?.toLowerCase().includes(query) || false) ||
+                  client.sub_areas.some(area => area.toLowerCase().includes(query))
                 );
               }).map((client) => (
                 <tr key={client.id} className="border-b border-border last:border-0 hover:bg-accent/50">
                   <td className="px-4 py-3 text-sm font-medium text-foreground">{client.company}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{client.pincode}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{client.state}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{client.mainArea}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{client.pincode || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{client.state || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{client.main_area || '-'}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
-                      {client.multipleAreas.map((area, idx) => (
+                      {client.sub_areas.map((area, idx) => (
                         <span key={idx} className="inline-block bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">
                           {area}
                         </span>
                       ))}
                     </div>
                   </td>
+                  {userRole === "admin" && (
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => openEditDialog(client)}
+                          className="p-1 rounded hover:bg-blue-100 text-gray-600 hover:text-blue-600 transition"
+                          title="Edit client"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClient(client.id)}
+                          className="p-1 rounded hover:bg-red-100 text-gray-600 hover:text-red-600 transition"
+                          title="Delete client"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -502,6 +657,142 @@ const Clients = () => {
                 className="rounded-lg bg-red-600 hover:bg-red-700"
               >
                 Add Client
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Client Dialog */}
+      <Dialog open={isEditClientOpen} onOpenChange={setIsEditClientOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">Edit Client</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div>
+              <Label className="text-sm font-medium text-gray-900">
+                Party Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                value={partyName}
+                onChange={(e) => setPartyName(e.target.value)}
+                placeholder="Enter party name"
+                className="mt-2 border-2 border-red-500 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium text-gray-900">Pincode</Label>
+                <Input
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value)}
+                  placeholder="e.g. 400001"
+                  className="mt-2 rounded-lg"
+                />
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-900">State</Label>
+                <Input
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  placeholder="e.g. Maharashtra"
+                  className="mt-2 rounded-lg"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium text-gray-900 mb-3 block">Area</Label>
+              
+              {/* Main Area Option */}
+              <div className="mb-4">
+                <p className="text-xs font-medium text-gray-600 mb-2">Main Area</p>
+                <Input
+                  value={mainArea}
+                  onChange={(e) => setMainArea(e.target.value)}
+                  placeholder="e.g. Mumbai"
+                  className="rounded-lg"
+                />
+              </div>
+
+              {/* Sub Area Option */}
+              <div>
+                <p className="text-xs font-medium text-gray-600 mb-2">Sub Area</p>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      value={newAreaInput}
+                      onChange={(e) => setNewAreaInput(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter" && newAreaInput.trim()) {
+                          setMultipleAreas([...multipleAreas, newAreaInput.trim()]);
+                          setNewAreaInput("");
+                        }
+                      }}
+                      placeholder="Type area and press Enter"
+                      className="rounded-lg"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        if (newAreaInput.trim()) {
+                          setMultipleAreas([...multipleAreas, newAreaInput.trim()]);
+                          setNewAreaInput("");
+                        }
+                      }}
+                      className="bg-red-600 hover:bg-red-700 text-white px-3"
+                    >
+                      Add
+                    </Button>
+                  </div>
+                  
+                  {multipleAreas.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {multipleAreas.map((areaItem, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-1 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm"
+                        >
+                          <span>{areaItem}</span>
+                          <button
+                            type="button"
+                            onClick={() => setMultipleAreas(multipleAreas.filter((_, i) => i !== index))}
+                            className="hover:text-red-600"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEditClientOpen(false);
+                  setEditingClient(null);
+                  setPartyName("");
+                  setPincode("");
+                  setState("");
+                  setMainArea("");
+                  setMultipleAreas([]);
+                  setNewAreaInput("");
+                }}
+                className="rounded-lg"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleEditClient}
+                className="rounded-lg bg-red-600 hover:bg-red-700"
+              >
+                Update Client
               </Button>
             </div>
           </div>

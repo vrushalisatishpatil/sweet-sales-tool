@@ -207,6 +207,38 @@ export interface Database {
           updated_at?: string;
         };
       };
+      clients: {
+        Row: {
+          id: string;
+          company: string;
+          pincode: string | null;
+          state: string | null;
+          main_area: string | null;
+          sub_areas: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          company: string;
+          pincode?: string | null;
+          state?: string | null;
+          main_area?: string | null;
+          sub_areas?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          company?: string;
+          pincode?: string | null;
+          state?: string | null;
+          main_area?: string | null;
+          sub_areas?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
   };
 }
