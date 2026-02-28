@@ -1,4 +1,3 @@
-import { notes as initialNotes } from "@/data/mockData";
 import { useState } from "react";
 import { Plus, Search, FileText, Building2, User, Calendar, X, Filter, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -9,7 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 
 const AddNotes = () => {
-  const [notesData, setNotesData] = useState(initialNotes);
+  const [notesData, setNotesData] = useState<Array<{
+    id: string;
+    title: string;
+    content: string;
+    category: string;
+    company: string;
+    createdAt: string;
+  }>>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [filterDropdown, setFilterDropdown] = useState("All To Do's");

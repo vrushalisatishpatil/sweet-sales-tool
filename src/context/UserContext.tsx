@@ -2,6 +2,8 @@ import React from "react";
 
 interface UserContextType {
   userRole: "admin" | "salesperson";
+  userName: string | null;
+  userEmail: string | null;
 }
 
 export const UserContext = React.createContext<UserContextType | undefined>(undefined);

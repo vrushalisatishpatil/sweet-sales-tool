@@ -1,5 +1,4 @@
-import { salesTeam, salesPerformanceData, leadStatusDistribution } from "@/data/mockData";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Download, FileText, Check, ChevronDown } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import {
@@ -7,8 +6,23 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { supabase } from "@/lib/supabase";
+import { useUser } from "@/context/UserContext";
+import type { LeadStatus } from "@/types/database.types";
 
 const Reports = () => {
+  const { userRole, userName } = useUser();
+  const [salesTeamData, setSalesTeamData] = useState<Array<{
+    id: string;
+    name: string;
+    email: string;
+    avatar: string | null;
+    leads: number;
+    converted: number;
+    rate: string;
+    status: "Active" | "Inactive";
+  }>>([]);
+  const [leadsData, setLeadsData] = useState<Array<{ status: LeadStatus }>>([]);
   const [dateFrom, setDateFrom] = useState("02/01/2025");
   const [dateTo, setDateTo] = useState("02/13/2025");
   const [selectedPerson, setSelectedPerson] = useState("All Sales Persons");
@@ -30,14 +44,80 @@ const Reports = () => {
     "Lost"
   ];
 
+  useEffect(() => {
+    const fetchSalesTeam = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("sales_team")
+          .select("id, name, email, avatar, leads, converted, rate, status")
+          .order("name", { ascending: true });
+
+        if (error) throw error;
+        setSalesTeamData(data || []);
+      } catch (err) {
+        console.error("Error fetching sales team for reports:", err);
+      }
+    };
+
+    const fetchLeads = async () => {
+      try {
+        let query = supabase
+          .from("leads")
+          .select("status");
+        
+        // Filter by assigned salesperson if not admin
+        if (userRole === 'salesperson' && userName) {
+          query = query.eq('assigned_to', userName);
+        }
+        
+        const { data, error } = await query;
+
+        if (error) throw error;
+        setLeadsData((data || []) as Array<{ status: LeadStatus }>);
+      } catch (err) {
+        console.error("Error fetching leads for reports:", err);
+      }
+    };
+
+    fetchSalesTeam();
+    fetchLeads();
+  }, []);
+
   const personOptions = [
     "All Sales Persons",
-    "Rahul Sharma",
-    "Priya Patel",
-    "Amit Kumar",
-    "Sneha Gupta",
-    "Vikram Singh"
+    ...salesTeamData.map((person) => person.name),
   ];
+
+  const salesPerformanceData = salesTeamData.map((person) => ({
+    name: person.name,
+    leads: person.leads,
+    conversions: person.converted,
+  }));
+
+  const statusColors: Record<LeadStatus, string> = {
+    New: "#3b82f6",
+    Connected: "#22c55e",
+    Interested: "#a855f7",
+    "Not Interested": "#ef4444",
+    "Detail Share": "#eab308",
+    "Re-connected": "#14b8a6",
+    Negotiation: "#f97316",
+    Converted: "#10b981",
+    Irrelevant: "#6b7280",
+    Lost: "#f43f5e",
+  };
+
+  const leadStatusDistribution = statusOptions
+    .filter((status) => status !== "All Status")
+    .map((status) => {
+      const typedStatus = status as LeadStatus;
+      return {
+        name: typedStatus,
+        value: leadsData.filter((lead) => lead.status === typedStatus).length,
+        color: statusColors[typedStatus],
+      };
+    })
+    .filter((item) => item.value > 0);
 
   return (
     <div>
@@ -218,7 +298,7 @@ const Reports = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {salesTeam.map((person) => (
+              {salesTeamData.map((person) => (
                 <tr key={person.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">

@@ -1,4 +1,3 @@
-import { clients as initialClients } from "@/data/mockData";
 import { Search, Upload, Plus, Users, X, Download } from "lucide-react";
 import { useState, useRef } from "react";
 import * as XLSX from 'xlsx';
@@ -12,7 +11,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import type { Client } from "@/data/mockData";
+
+interface Client {
+  id: string;
+  company: string;
+  pincode: string;
+  city: string;
+  state: string;
+  mainArea: string;
+  multipleAreas: string[];
+}
 
 // Function to merge duplicate clients with same company, pincode, state, and mainArea
 const mergeDuplicateClients = (clients: Client[]): Client[] => {
@@ -42,7 +50,7 @@ const mergeDuplicateClients = (clients: Client[]): Client[] => {
 
 const Clients = () => {
   const { userRole } = useUser();
-  const [clientsData, setClientsData] = useState<Client[]>(initialClients);
+  const [clientsData, setClientsData] = useState<Client[]>([]);
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [partyName, setPartyName] = useState("");

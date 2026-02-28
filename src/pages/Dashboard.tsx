@@ -1,16 +1,129 @@
+import { useEffect, useState } from "react";
 import { Target, CheckCircle, Clock, Users, Phone, Mail, MessageSquare, MapPin } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, Area, AreaChart, ResponsiveContainer } from "recharts";
-import { leads, followUps, salesTeam, salesPerformanceData, weeklyLeadTrend, leadStatusDistribution, getStatusColor } from "@/data/mockData";
 import { Link } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
+import { useUser } from "@/context/UserContext";
+import type { LeadStatus } from "@/types/database.types";
 
-const statCards = [
-  { title: "Total Leads", value: leads.length, change: "↑ 12% this week", positive: true, icon: Target, iconColor: "text-primary" },
-  { title: "Conversions", value: leads.filter(l => l.status === "Converted").length, change: "↑ 8.3% rate", positive: true, icon: CheckCircle, iconColor: "text-status-converted" },
-  { title: "Today's Follow-ups", value: followUps.length, change: "↓ 3 scheduled", positive: false, icon: Clock, iconColor: "text-status-followup" },
-  { title: "Active Sales Team", value: salesTeam.length, change: "", positive: true, icon: Users, iconColor: "text-status-new" },
-];
+const leadStatusColors: Record<LeadStatus, string> = {
+  New: "#3b82f6",
+  Connected: "#22c55e",
+  Interested: "#a855f7",
+  "Not Interested": "#ef4444",
+  "Detail Share": "#eab308",
+  "Re-connected": "#14b8a6",
+  Negotiation: "#f97316",
+  Converted: "#10b981",
+  Irrelevant: "#6b7280",
+  Lost: "#f43f5e",
+};
+
+const getStatusColorClass = (status: LeadStatus) => {
+  const colors: Record<LeadStatus, string> = {
+    New: "bg-blue-100 text-blue-700",
+    Connected: "bg-green-100 text-green-700",
+    Interested: "bg-purple-100 text-purple-700",
+    "Not Interested": "bg-red-100 text-red-700",
+    "Detail Share": "bg-yellow-100 text-yellow-700",
+    "Re-connected": "bg-teal-100 text-teal-700",
+    Negotiation: "bg-orange-100 text-orange-700",
+    Converted: "bg-emerald-100 text-emerald-700",
+    Irrelevant: "bg-gray-100 text-gray-700",
+    Lost: "bg-rose-100 text-rose-700",
+  };
+  return colors[status] || "bg-gray-100 text-gray-700";
+};
 
 const Dashboard = () => {
+  const { userRole, userName } = useUser();
+  const [leadsData, setLeadsData] = useState<Array<{
+    id: string;
+    company: string;
+    contact: string;
+    source: string | null;
+    status: LeadStatus;
+    created_at: string;
+  }>>([]);
+  const [salesTeamData, setSalesTeamData] = useState<Array<{
+    id: string;
+    name: string;
+    leads: number;
+    converted: number;
+    status: "Active" | "Inactive";
+  }>>([]);
+
+  useEffect(() => {
+    const fetchSalesTeam = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("sales_team")
+          .select("id, name, leads, converted, status")
+          .order("name", { ascending: true });
+
+        if (error) throw error;
+        setSalesTeamData(data || []);
+      } catch (err) {
+        console.error("Error fetching sales team for dashboard:", err);
+      }
+    };
+
+    const fetchLeads = async () => {
+      try {
+        let query = supabase
+          .from("leads")
+          .select("id, company, contact, source, status, created_at");
+        
+        // Filter by assigned salesperson if not admin
+        if (userRole === 'salesperson' && userName) {
+          query = query.eq('assigned_to', userName);
+        }
+        
+        const { data, error } = await query
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        setLeadsData((data || []) as Array<{
+          id: string;
+          company: string;
+          contact: string;
+          source: string | null;
+          status: LeadStatus;
+          created_at: string;
+        }>);
+      } catch (err) {
+        console.error("Error fetching leads for dashboard:", err);
+      }
+    };
+
+    fetchSalesTeam();
+    fetchLeads();
+  }, []);
+
+  const salesPerformanceData = salesTeamData.map((person) => ({
+    name: person.name,
+    leads: person.leads,
+    conversions: person.converted,
+  }));
+
+  const activeSalesCount = salesTeamData.filter((person) => person.status === "Active").length;
+
+  const statusOrder: LeadStatus[] = ["New", "Connected", "Interested", "Not Interested", "Detail Share", "Re-connected", "Negotiation", "Converted", "Irrelevant", "Lost"];
+  const leadStatusDistribution = statusOrder.map((status) => ({
+    name: status,
+    value: leadsData.filter((lead) => lead.status === status).length,
+    color: leadStatusColors[status],
+  })).filter((item) => item.value > 0);
+
+  const recentLeads = leadsData.slice(0, 5);
+
+  const statCards = [
+    { title: "Total Leads", value: leadsData.length, change: "", positive: true, icon: Target, iconColor: "text-primary" },
+    { title: "Conversions", value: leadsData.filter((lead) => lead.status === "Converted").length, change: "", positive: true, icon: CheckCircle, iconColor: "text-status-converted" },
+    { title: "Today's Follow-ups", value: 0, change: "", positive: false, icon: Clock, iconColor: "text-status-followup" },
+    { title: "Active Sales Team", value: activeSalesCount, change: "", positive: true, icon: Users, iconColor: "text-status-new" },
+  ];
+
   return (
     <div>
       <div className="mb-6">
@@ -37,7 +150,7 @@ const Dashboard = () => {
       </div>
 
       {/* Charts Row */}
-      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Pie Chart */}
         <div className="rounded-xl border border-border bg-card p-4">
           <h3 className="mb-4 font-semibold text-foreground">Lead Status Distribution</h3>
@@ -86,46 +199,10 @@ const Dashboard = () => {
             </BarChart>
           </ResponsiveContainer>
         </div>
-
-        {/* Line Chart */}
-        <div className="rounded-xl border border-border bg-card p-4">
-          <h3 className="mb-4 font-semibold text-foreground">Weekly Lead Trend</h3>
-          <ResponsiveContainer width="100%" height={230}>
-            <AreaChart data={weeklyLeadTrend}>
-              <defs>
-                <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(210, 85%, 40%)" stopOpacity={0.15}/>
-                  <stop offset="95%" stopColor="hsl(210, 85%, 40%)" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 91%)" vertical={false} />
-              <XAxis 
-                dataKey="day" 
-                tick={{ fontSize: 12, fill: "hsl(215, 16%, 47%)" }} 
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis 
-                tick={{ fontSize: 12, fill: "hsl(215, 16%, 47%)" }} 
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip />
-              <Area
-                type="monotone"
-                dataKey="leads"
-                stroke="hsl(210, 85%, 40%)"
-                strokeWidth={3}
-                fill="url(#colorLeads)"
-                dot={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
       </div>
 
       {/* Bottom Row */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4">
         {/* Recent Leads */}
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="mb-4 flex items-center justify-between">
@@ -133,61 +210,21 @@ const Dashboard = () => {
             <Link to="/leads" className="text-xs text-primary hover:underline">View all →</Link>
           </div>
           <div className="space-y-3">
-            {leads.slice(0, 5).map((lead) => (
-              <div key={lead.id} className="flex items-center justify-between rounded-lg p-2 hover:bg-accent">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{lead.company}</p>
-                  <p className="text-xs text-muted-foreground">{lead.contact} · {lead.source}</p>
-                </div>
-                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(lead.status)}`}>
-                  {lead.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Today's Follow-ups */}
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-semibold text-foreground">Today's Follow-ups</h3>
-            <span className="text-sm font-medium text-red-600">
-              {followUps.length} scheduled
-            </span>
-          </div>
-          <div className="space-y-3">
-            {followUps.map((fu) => {
-              const getMethodIcon = () => {
-                switch (fu.method) {
-                  case "Call":
-                    return { icon: Phone, bgColor: "bg-blue-50", iconColor: "text-blue-600" };
-                  case "Email":
-                    return { icon: Mail, bgColor: "bg-blue-50", iconColor: "text-blue-600" };
-                  case "WhatsApp":
-                    return { icon: Phone, bgColor: "bg-green-50", iconColor: "text-green-600" };
-                  case "Visit":
-                    return { icon: MapPin, bgColor: "bg-purple-50", iconColor: "text-purple-600" };
-                  default:
-                    return { icon: Phone, bgColor: "bg-gray-50", iconColor: "text-gray-600" };
-                }
-              };
-              
-              const { icon: IconComponent, bgColor, iconColor } = getMethodIcon();
-              
-              return (
-                <div key={fu.id} className="flex items-start gap-3 py-2">
-                  <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${bgColor}`}>
-                    <IconComponent className={`h-4 w-4 ${iconColor}`} />
+            {recentLeads.length > 0 ? (
+              recentLeads.map((lead) => (
+                <div key={lead.id} className="flex items-center justify-between rounded-lg p-2 hover:bg-accent">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{lead.company}</p>
+                    <p className="text-xs text-muted-foreground">{lead.contact} · {lead.source || "-"}</p>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">{fu.company}</p>
-                    <p className="text-sm text-muted-foreground mt-0.5">{fu.note}</p>
-                    <p className="mt-0.5 text-xs text-blue-600">By {fu.by} · {fu.method}</p>
-                  </div>
-                  <p className="shrink-0 text-sm text-muted-foreground">{fu.phone}</p>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColorClass(lead.status)}`}>
+                    {lead.status}
+                  </span>
                 </div>
-              );
-            })}
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">No recent leads</p>
+            )}
           </div>
         </div>
       </div>

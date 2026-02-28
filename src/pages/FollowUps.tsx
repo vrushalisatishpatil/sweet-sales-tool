@@ -1,5 +1,17 @@
 import { useState } from "react";
-import { followUps as initialFollowUps, type FollowUp } from "@/data/mockData";
+
+interface FollowUp {
+  id: string;
+  company: string;
+  contact: string;
+  phone: string;
+  method: string;
+  note: string;
+  by: string;
+  date: string;
+  status: string;
+  completed: boolean;
+}
 import { Phone, Mail, MessageCircle, MapPin, ArrowRight, Calendar, Edit, History, Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,7 +29,7 @@ const methodIcons: Record<string, React.ReactNode> = {
 };
 
 const FollowUps = () => {
-  const [followUpData] = useState<FollowUp[]>(initialFollowUps);
+  const [followUpData] = useState<FollowUp[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedFollowUp, setSelectedFollowUp] = useState<FollowUp | null>(null);
   const [isHistoryView, setIsHistoryView] = useState(false);

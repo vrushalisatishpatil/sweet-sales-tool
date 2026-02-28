@@ -36,6 +36,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const [session, setSession] = useState<Session | null>(null);
   const [localSessionEmail, setLocalSessionEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<"admin" | "salesperson">("salesperson");
+  const [userName, setUserName] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -50,6 +52,18 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     if (storedEmail) {
       setLocalSessionEmail(storedEmail);
       setUserRole("salesperson");
+      setUserEmail(storedEmail);
+      // Fetch salesperson name
+      supabase
+        .from("sales_team")
+        .select("name")
+        .eq("email", storedEmail)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.name) {
+            setUserName(data.name);
+          }
+        });
       setAuthLoading(false);
     }
   }, []);
@@ -74,8 +88,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       setAuthLoading(false);
       if (newSession?.user?.email === adminEmail) {
         setUserRole("admin");
+        setUserEmail(newSession.user.email);
+        setUserName("Admin");
       } else if (newSession) {
         setUserRole("salesperson");
+        setUserEmail(newSession.user.email || null);
+        setUserName(null);
       } else {
         setUserRole("salesperson");
       }
@@ -91,8 +109,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       localStorage.removeItem("salesperson_email");
       setLocalSessionEmail(null);
       setUserRole("salesperson");
+      setUserName(null);
+      setUserEmail(null);
     } else {
       await supabase.auth.signOut();
+      setUserName(null);
+      setUserEmail(null);
     }
     setShowProfileMenu(false);
   };
@@ -110,7 +132,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     if (loginRole === "salesperson") {
       const { data, error: lookupError } = await supabase
         .from("sales_team")
-        .select("email")
+        .select("email, name")
         .eq("email", trimmedLogin)
         .eq("password", trimmedPassword)
         .maybeSingle();
@@ -123,6 +145,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       localStorage.setItem("salesperson_email", trimmedLogin);
       setLocalSessionEmail(trimmedLogin);
       setUserRole("salesperson");
+      setUserEmail(trimmedLogin);
+      setUserName(data.name || null);
       setLoginPassword("");
       return;
     }
@@ -250,7 +274,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   }
 
   return (
-    <UserContext.Provider value={{ userRole }}>
+    <UserContext.Provider value={{ userRole, userName, userEmail }}>
       <div className="flex h-screen overflow-hidden">
         {/* Sidebar */}
         <aside className={`${collapsed ? "w-16" : "w-52"} flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-200`}>

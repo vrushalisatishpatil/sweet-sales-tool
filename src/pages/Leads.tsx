@@ -48,7 +48,7 @@ const getStatusColor = (status: LeadStatus) => {
 };
 
 const Leads = () => {
-  const { userRole } = useUser();
+  const { userRole, userName } = useUser();
   const [leadsData, setLeadsData] = useState<Lead[]>([]);
   const [salesPersons, setSalesPersons] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
@@ -125,9 +125,16 @@ const Leads = () => {
       setLoading(true);
       setError(null);
       
-      const { data, error: fetchError } = await supabase
+      let query = supabase
         .from('leads')
-        .select('*')
+        .select('*');
+      
+      // Filter by assigned salesperson if not admin
+      if (userRole === 'salesperson' && userName) {
+        query = query.eq('assigned_to', userName);
+      }
+      
+      const { data, error: fetchError } = await query
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
