@@ -177,20 +177,29 @@ const Leads = () => {
     const year = new Date().getFullYear();
     const prefix = `LEAD-${year}-`;
     
-    // Count existing leads for this year
+    // Get the highest lead ID for this year
     const { data, error } = await supabase
       .from('leads')
-      .select('lead_id', { count: 'exact' })
-      .like('lead_id', `${prefix}%`);
+      .select('lead_id')
+      .like('lead_id', `${prefix}%`)
+      .order('lead_id', { ascending: false })
+      .limit(1);
     
     if (error) {
-      console.error('Error counting leads:', error);
+      console.error('Error fetching leads:', error);
       return `${prefix}0001`; // Fallback if error
     }
     
-    const count = data?.length || 0;
-    const nextNumber = (count + 1).toString().padStart(4, '0');
-    return `${prefix}${nextNumber}`;
+    // Extract the number from the last lead ID and increment
+    if (data && data.length > 0) {
+      const lastId = data[0].lead_id;
+      const lastNumber = parseInt(lastId.replace(prefix, ''), 10);
+      const nextNumber = (lastNumber + 1).toString().padStart(4, '0');
+      return `${prefix}${nextNumber}`;
+    }
+    
+    // No existing leads for this year
+    return `${prefix}0001`;
   };
 
   const filtered = leadsData.filter((l) => {
@@ -409,50 +418,68 @@ const Leads = () => {
   };
 
   const handleDownloadTemplate = () => {
-    const templateData = leadsData.map((lead) => ({
-      "Lead ID": lead.leadId,
-      "Date": formatDateDDMMYYYY(lead.createdAt),
-      "Company Name": lead.company,
-      "Contact Person": lead.contact,
-      "Contact Number": lead.phone,
-      "Email": lead.email,
-      "City": lead.city,
-      "State": lead.state,
-      "Country": lead.country,
-      "Inquiry Source": lead.source,
-      "Assigned To": lead.assignedTo,
-      "Status": lead.status,
-      "Product Interested": lead.productInterested,
-      "Initial Remarks": lead.remarks,
-      "Value": lead.value,
-      "Inquiry Date": formatDateDDMMYYYY(lead.inquiryDate),
-      "Next Follow-up Date": formatDateDDMMYYYY(lead.nextFollowUpDate),
-    }));
+    // Create a blank template with sample data (Lead ID is auto-generated, so not included)
+    const templateData = [
+      {
+        "Company Name": "Sample Company Ltd",
+        "Contact Person": "John Doe",
+        "Contact Number": "+1234567890",
+        "Email": "john.doe@example.com",
+        "City": "Mumbai",
+        "State": "Maharashtra",
+        "Country": "India",
+        "Inquiry Source": "Website",
+        "Product Interested": "Product A",
+        "Assigned To": "Sales Person Name",
+        "Status": "New",
+        "Value": 50000,
+        "Initial Remarks": "Interested in bulk order",
+        "Inquiry Date": "2026-03-01",
+        "Next Follow-up Date": "2026-03-05",
+      },
+      {
+        "Company Name": "",
+        "Contact Person": "",
+        "Contact Number": "",
+        "Email": "",
+        "City": "",
+        "State": "",
+        "Country": "",
+        "Inquiry Source": "",
+        "Product Interested": "",
+        "Assigned To": "",
+        "Status": "",
+        "Value": "",
+        "Initial Remarks": "",
+        "Inquiry Date": "",
+        "Next Follow-up Date": "",
+      }
+    ];
 
     const worksheet = XLSX.utils.json_to_sheet(templateData);
+    
+    // Set column widths
     worksheet["!cols"] = [
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 25 },
-      { wch: 22 },
-      { wch: 16 },
-      { wch: 28 },
-      { wch: 14 },
-      { wch: 16 },
-      { wch: 14 },
-      { wch: 18 },
-      { wch: 18 },
-      { wch: 14 },
-      { wch: 22 },
-      { wch: 32 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 18 },
+      { wch: 25 }, // Company Name
+      { wch: 22 }, // Contact Person
+      { wch: 16 }, // Contact Number
+      { wch: 28 }, // Email
+      { wch: 14 }, // City
+      { wch: 16 }, // State
+      { wch: 14 }, // Country
+      { wch: 18 }, // Inquiry Source
+      { wch: 22 }, // Product Interested
+      { wch: 18 }, // Assigned To
+      { wch: 14 }, // Status
+      { wch: 12 }, // Value
+      { wch: 32 }, // Initial Remarks
+      { wch: 15 }, // Inquiry Date
+      { wch: 18 }, // Next Follow-up Date
     ];
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
-    XLSX.writeFile(workbook, "leads-data.xlsx");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Leads Template");
+    XLSX.writeFile(workbook, "leads-import-template.xlsx");
   };
 
   const handleLeadsFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -480,19 +507,39 @@ const Leads = () => {
           }
 
           const normalizeDate = (value: unknown) => {
+            // Handle Date objects
             if (value instanceof Date && !isNaN(value.getTime())) {
               return value.toISOString().split('T')[0];
             }
 
+            // Handle numeric values (Excel serial numbers)
             if (typeof value === 'number' || (typeof value === 'string' && value.trim() !== '' && !isNaN(Number(value)))) {
               const numeric = typeof value === 'number' ? value : Number(value);
-              const parsed = XLSX.SSF.parse_date_code(numeric);
-              if (parsed && parsed.y && parsed.m && parsed.d) {
-                const date = new Date(parsed.y, parsed.m - 1, parsed.d);
+              
+              // Try XLSX parser first
+              try {
+                const parsed = XLSX.SSF.parse_date_code(numeric);
+                if (parsed && typeof parsed === 'object' && parsed.y && parsed.m && parsed.d) {
+                  const date = new Date(parsed.y, parsed.m - 1, parsed.d);
+                  if (!isNaN(date.getTime())) {
+                    return date.toISOString().split('T')[0];
+                  }
+                }
+              } catch (e) {
+                // Fall through to manual calculation
+              }
+              
+              // Manual Excel serial number conversion
+              // Excel epoch is 1900-01-01
+              const excelEpoch = new Date(1900, 0, 1);
+              const millisecondsPerDay = 24 * 60 * 60 * 1000;
+              const date = new Date(excelEpoch.getTime() + (numeric - 1) * millisecondsPerDay);
+              if (!isNaN(date.getTime())) {
                 return date.toISOString().split('T')[0];
               }
             }
 
+            // Handle string dates
             if (typeof value === 'string' && value.trim() !== '') {
               const parsed = new Date(value);
               if (!isNaN(parsed.getTime())) {
@@ -500,33 +547,33 @@ const Leads = () => {
               }
             }
 
-            return new Date().toISOString().split('T')[0];
+            return null; // Return null instead of today's date for invalid values
           };
 
+          // Get the starting lead ID number (fetch once before the loop)
+          const year = new Date().getFullYear();
+          const prefix = `LEAD-${year}-`;
+          
+          const { data: existingLeads, error: leadIdError } = await supabase
+            .from('leads')
+            .select('lead_id')
+            .like('lead_id', `${prefix}%`)
+            .order('lead_id', { ascending: false })
+            .limit(1);
+          
+          let nextLeadNumber = 1;
+          if (!leadIdError && existingLeads && existingLeads.length > 0) {
+            const lastId = existingLeads[0].lead_id;
+            const lastNumber = parseInt(lastId.replace(prefix, ''), 10);
+            nextLeadNumber = lastNumber + 1;
+          }
+
           // Map imported data to Supabase schema
-          const leadsToInsert = await Promise.all(jsonData.map(async (row) => {
-            const generatePersonId = async () => {
-              const year = new Date().getFullYear();
-              const prefix = `LEAD-${year}-`;
-              
-              // Count existing leads for this year
-              const { data, error } = await supabase
-                .from('leads')
-                .select('lead_id', { count: 'exact' })
-                .like('lead_id', `${prefix}%`);
-              
-              if (error) {
-                console.error('Error counting leads:', error);
-                return `${prefix}0001`;
-              }
-              
-              const count = data?.length || 0;
-              const nextNumber = (count + 1).toString().padStart(4, '0');
-              return `${prefix}${nextNumber}`;
-            };
+          const leadsToInsert = jsonData.map((row, index) => {
+            const leadId = `${prefix}${(nextLeadNumber + index).toString().padStart(4, '0')}`;
 
             return {
-              lead_id: await generatePersonId(),
+              lead_id: leadId,
               company: row['Company Name'] || row['Company'] || row['company'] || row['Organization'] || '',
               contact: row['Contact Person'] || row['Contact'] || row['contact'] || row['contactPerson'] || '',
               phone: row['Contact Number'] || row['Phone'] || row['phone'] || row['Mobile'] || row['mobile'] || '',
@@ -540,10 +587,10 @@ const Leads = () => {
               status: (row['Status'] || row['status'] || 'New') as LeadStatus,
               value: Number(row['Value'] || row['value'] || 0) || 0,
               remarks: row['Initial Remarks'] || row['Remarks'] || row['remarks'] || row['initialRemarks'] || '',
-              inquiry_date: normalizeDate(row['Inquiry Date'] || row['inquiryDate'] || row['inquiry_date']),
-              next_follow_up_date: row['Next Follow-up Date'] || row['nextFollowUpDate'] || row['next_follow_up_date'] || null,
+              inquiry_date: normalizeDate(row['Inquiry Date'] || row['inquiryDate'] || row['inquiry_date']) || new Date().toISOString().split('T')[0],
+              next_follow_up_date: (row['Next Follow-up Date'] || row['nextFollowUpDate'] || row['next_follow_up_date']) ? normalizeDate(row['Next Follow-up Date'] || row['nextFollowUpDate'] || row['next_follow_up_date']) : null,
             };
-          }));
+          });
 
           // Insert all leads to Supabase
           const { error: insertError } = await supabase
