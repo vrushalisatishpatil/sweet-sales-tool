@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Search, ListTodo, Clock, AlertTriangle, CheckCircle2, User, Calendar, Building2, Filter, Check, ChevronDown } from "lucide-react";
+import { Plus, Search, ListTodo, Clock, AlertTriangle, CheckCircle2, User, Calendar, Building2, Filter, Check, ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/lib/supabase";
 import { formatDateDDMMYYYY } from "@/lib/utils";
@@ -40,6 +40,9 @@ const AssignTasks = () => {
   const [isPriorityOpen, setIsPriorityOpen] = useState(false);
   const [openTaskDropdown, setOpenTaskDropdown] = useState<string | null>(null);
   const [taskStatuses, setTaskStatuses] = useState<Record<string, string>>({});
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
@@ -140,6 +143,66 @@ const AssignTasks = () => {
     } catch (err) {
       console.error('Error updating task status:', err);
       alert('Failed to update task status. Please try again.');
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!confirm("Are you sure you want to delete this task?")) return;
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      setTasksData((prev) => prev.filter((task) => task.id !== taskId));
+      setSelectedTask(null);
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      alert("Failed to delete task.");
+    }
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask({ ...task });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingTask) return;
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          title: editingTask.title,
+          description: editingTask.description,
+          assigned_to: editingTask.assignedTo,
+          priority: editingTask.priority,
+          due_date: editingTask.dueDate,
+        })
+        .eq('id', editingTask.id);
+
+      if (error) throw error;
+
+      setTasksData((prev) =>
+        prev.map((task) =>
+          task.id === editingTask.id ? editingTask : task
+        )
+      );
+
+      if (selectedTask?.id === editingTask.id) {
+        setSelectedTask(editingTask);
+      }
+
+      setIsEditDialogOpen(false);
+      setEditingTask(null);
+      alert("Task updated successfully!");
+    } catch (error) {
+      console.error("Error updating task:", error);
+      alert("Failed to update task.");
     }
   };
 
@@ -396,7 +459,7 @@ const AssignTasks = () => {
         {filteredTasks.map((task) => (
           <div key={task.id} className="rounded-xl border border-border bg-card p-5 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
+              <div className="flex-1 cursor-pointer min-w-0" onClick={() => setSelectedTask(task)}>
                 {/* Task ID and Badges */}
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-sm font-medium text-muted-foreground">{task.taskId}</span>
@@ -408,11 +471,14 @@ const AssignTasks = () => {
                   </span>
                 </div>
 
-                {/* Task Title */}
-                <h3 className="text-base font-semibold text-foreground mb-2">{task.title}</h3>
+                {/* Task Title - Truncated */}
+                <h3 className="text-base font-semibold text-foreground mb-2 line-clamp-2 break-words hover:text-red-600 transition-colors">{task.title}</h3>
 
-                {/* Task Description */}
-                <p className="text-sm text-muted-foreground mb-4">{task.description}</p>
+                {/* Task Description - Truncated */}
+                <p className="text-sm text-muted-foreground mb-4 line-clamp-3 break-words">{task.description}</p>
+                {task.description && task.description.length > 150 && (
+                  <p className="text-[11px] text-blue-500 mb-2 font-medium">Click to view full details</p>
+                )}
 
                 {/* Task Meta Information */}
                 <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
@@ -427,8 +493,27 @@ const AssignTasks = () => {
                 </div>
               </div>
 
-              {/* Status Dropdown */}
-              <div className="shrink-0">
+              {/* Action Buttons & Status Dropdown */}
+              <div className="shrink-0 flex items-center gap-2">
+                {/* Edit Button */}
+                <button
+                  onClick={() => handleEditTask(task)}
+                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                  title="Edit"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+
+                {/* Delete Button */}
+                <button
+                  onClick={() => handleDeleteTask(task.id)}
+                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+
+                {/* Status Dropdown */}
                 <Popover open={openTaskDropdown === task.id} onOpenChange={(open) => setOpenTaskDropdown(open ? task.id : null)}>
                   <PopoverTrigger asChild>
                     <button className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50">
@@ -561,6 +646,174 @@ const AssignTasks = () => {
               Create Task
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Full Task Dialog */}
+      <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {/* Custom Header with Icons */}
+          <div className="flex items-center justify-between pr-8 pb-4 border-b border-gray-200">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">{selectedTask?.taskId}</span>
+              <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${getPriorityBadgeColor(selectedTask?.priority || 'Low')}`}>
+                {selectedTask?.priority}
+              </span>
+              <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${getStatusBadgeColor(selectedTask?.status || 'Pending')}`}>
+                {selectedTask?.status}
+              </span>
+            </div>
+            {/* Action Icons */}
+            {selectedTask && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    handleEditTask(selectedTask);
+                    setSelectedTask(null);
+                  }}
+                  className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                  title="Edit"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    handleDeleteTask(selectedTask.id);
+                    setSelectedTask(null);
+                  }}
+                  className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+          {selectedTask && (
+            <div className="space-y-4">
+              {/* Title */}
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 break-words">
+                  {selectedTask.title}
+                </h2>
+              </div>
+
+              {/* Full Description */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Description</h3>
+                <p className="text-[14px] text-gray-600 leading-relaxed whitespace-pre-wrap break-words bg-gray-50 p-4 rounded-lg">
+                  {selectedTask.description || "No description provided"}
+                </p>
+              </div>
+
+              {/* Task Details */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs font-semibold text-gray-700 mb-1">Assigned To</p>
+                  <p className="text-sm text-gray-600">{selectedTask.assignedTo}</p>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs font-semibold text-gray-700 mb-1">Due Date</p>
+                  <p className="text-sm text-gray-600">{formatDateDDMMYYYY(selectedTask.dueDate)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Task Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+          </DialogHeader>
+          {editingTask && (
+            <div className="space-y-4">
+              {/* Title */}
+              <div>
+                <Label htmlFor="editTitle">Title</Label>
+                <Input
+                  id="editTitle"
+                  value={editingTask.title}
+                  onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
+                  placeholder="Enter task title"
+                  className="mt-1"
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <Label htmlFor="editDescription">Description</Label>
+                <Textarea
+                  id="editDescription"
+                  value={editingTask.description}
+                  onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })}
+                  placeholder="Enter task description"
+                  className="mt-1 min-h-[120px] resize-none"
+                />
+              </div>
+
+              {/* Assigned To */}
+              <div>
+                <Label htmlFor="editAssignedTo">Assigned To</Label>
+                <Input
+                  id="editAssignedTo"
+                  value={editingTask.assignedTo}
+                  onChange={(e) => setEditingTask({ ...editingTask, assignedTo: e.target.value })}
+                  placeholder="Enter assignee name"
+                  className="mt-1"
+                />
+              </div>
+
+              {/* Priority */}
+              <div>
+                <Label htmlFor="editPriority">Priority</Label>
+                <Select value={editingTask.priority} onValueChange={(value) => setEditingTask({ ...editingTask, priority: value as TaskPriority })}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Low">Low</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="High">High</SelectItem>
+                    <SelectItem value="Urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Due Date */}
+              <div>
+                <Label htmlFor="editDueDate">Due Date</Label>
+                <Input
+                  id="editDueDate"
+                  type="date"
+                  value={editingTask.dueDate}
+                  onChange={(e) => setEditingTask({ ...editingTask, dueDate: e.target.value })}
+                  className="mt-1"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                  onClick={handleSaveEdit}
+                >
+                  Save Changes
+                </Button>
+                <Button 
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700"
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setEditingTask(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

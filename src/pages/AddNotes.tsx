@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Search, FileText, Building2, User, Calendar, X, Filter, Check } from "lucide-react";
+import { Plus, Search, FileText, Building2, User, Calendar, X, Filter, Check, Pencil, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,9 @@ const AddNotes = () => {
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [filterDropdown, setFilterDropdown] = useState("All To Do's");
   const [isAddNoteDialogOpen, setIsAddNoteDialogOpen] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<TodoItem | null>(null);
+  const [editingNote, setEditingNote] = useState<TodoItem | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [newNote, setNewNote] = useState({
     title: "",
     content: "",
@@ -170,6 +173,8 @@ const AddNotes = () => {
 
   const handleDeleteNote = async (noteId: string) => {
     if (!ownerIdentifier) return;
+    
+    if (!confirm("Are you sure you want to delete this to-do?")) return;
 
     try {
       const { error } = await supabase
@@ -181,9 +186,50 @@ const AddNotes = () => {
       if (error) throw error;
 
       setNotesData((prev) => prev.filter((note) => note.id !== noteId));
+      setSelectedNote(null);
     } catch (error) {
       console.error("Error deleting todo:", error);
       alert("Failed to delete to-do.");
+    }
+  };
+
+  const handleEditNote = (note: TodoItem) => {
+    setEditingNote({ ...note });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingNote || !ownerIdentifier) return;
+
+    try {
+      const { error } = await supabase
+        .from("todos")
+        .update({
+          title: editingNote.title,
+          content: editingNote.content,
+          status: editingNote.category,
+        })
+        .eq("id", editingNote.id)
+        .eq("owner_identifier", ownerIdentifier);
+
+      if (error) throw error;
+
+      setNotesData((prev) =>
+        prev.map((note) =>
+          note.id === editingNote.id ? editingNote : note
+        )
+      );
+
+      if (selectedNote?.id === editingNote.id) {
+        setSelectedNote(editingNote);
+      }
+
+      setIsEditDialogOpen(false);
+      setEditingNote(null);
+      alert("To-do updated successfully!");
+    } catch (error) {
+      console.error("Error updating todo:", error);
+      alert("Failed to update to-do.");
     }
   };
 
@@ -355,16 +401,8 @@ const AddNotes = () => {
                 : note.category === "In Progress"
                 ? "border-l-4 border-l-blue-400"
                 : "border-l-4 border-l-gray-300"
-            } border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow relative`}
+            } border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow relative flex flex-col h-full`}
           >
-            {/* Close button */}
-            <button
-              onClick={() => handleDeleteNote(note.id)}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
-            >
-              <X className="h-4 w-4" />
-            </button>
-
             {/* Status Dropdown */}
             <div className="mb-3 flex items-center gap-2 pr-10">
               <Select value={note.category} onValueChange={(value) => handleStatusChange(note.id, value)}>
@@ -387,31 +425,61 @@ const AddNotes = () => {
               </Select>
             </div>
 
-            {/* Title */}
-            <h3 className="text-[15px] font-bold text-gray-900 mb-2 pr-6 leading-tight">{note.title}</h3>
+            {/* Title - Truncated to 2 lines */}
+            <h3 className="text-[15px] font-bold text-gray-900 mb-2 pr-6 leading-tight line-clamp-2 cursor-pointer hover:text-red-600 transition-colors"
+              onClick={() => setSelectedNote(note)}>
+              {note.title}
+            </h3>
 
             {/* Company/Lead (if applicable) */}
             {note.company && (
               <div className="flex items-center gap-1.5 mb-2">
-                <Building2 className="h-3.5 w-3.5 text-red-600" />
-                <span className="text-[13px] text-red-600 font-medium">{note.company}</span>
+                <Building2 className="h-3.5 w-3.5 text-red-600 flex-shrink-0" />
+                <span className="text-[13px] text-red-600 font-medium truncate">{note.company}</span>
               </div>
             )}
 
-            {/* Content */}
-            <p className="text-[13px] text-gray-600 leading-relaxed mb-3">
-              {note.content}
-            </p>
+            {/* Content - Truncated to 4 lines with scrollable container for expansion */}
+            <div 
+              className="flex-1 overflow-hidden mb-3 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => setSelectedNote(note)}
+            >
+              <p className="text-[13px] text-gray-600 leading-relaxed line-clamp-4 break-words">
+                {note.content}
+              </p>
+              {note.content && note.content.length > 100 && (
+                <p className="text-[11px] text-blue-500 mt-1 font-medium">Click to view full details</p>
+              )}
+            </div>
 
             {/* Footer */}
-            <div className="flex items-center gap-4 text-[11px] text-gray-500 pt-2 border-t border-gray-200">
-              <div className="flex items-center gap-1">
-                <User className="h-3 w-3" />
-                <span>{note.createdBy}</span>
+            <div className="flex items-center justify-between text-[11px] text-gray-500 pt-2 border-t border-gray-200">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1 truncate">
+                  <User className="h-3 w-3 flex-shrink-0" />
+                  <span className="truncate">{note.createdBy}</span>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <Calendar className="h-3 w-3" />
+                  <span>{note.createdAt}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                <span>{note.createdAt}</span>
+              {/* Edit and Delete Buttons */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleEditNote(note)}
+                  className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                  title="Edit"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => handleDeleteNote(note.id)}
+                  className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           </div>
@@ -478,6 +546,186 @@ const AddNotes = () => {
               Save Note
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Full Note Dialog */}
+      <Dialog open={!!selectedNote} onOpenChange={() => setSelectedNote(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {/* Custom Header with Icons */}
+          <div className="flex items-center justify-between pr-8 pb-4 border-b border-gray-200">
+            <div className="flex items-center gap-2">
+              <div className={`px-3 py-1 rounded text-xs font-medium ${
+                selectedNote?.category === "Pending" 
+                  ? "bg-yellow-100 text-yellow-700" 
+                  : selectedNote?.category === "Completed"
+                  ? "bg-red-100 text-red-700"
+                  : selectedNote?.category === "In Progress"
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-gray-100 text-gray-700"
+              }`}>
+                {selectedNote?.category}
+              </div>
+            </div>
+            {/* Action Icons */}
+            {selectedNote && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    handleEditNote(selectedNote);
+                    setSelectedNote(null);
+                  }}
+                  className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                  title="Edit"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    handleDeleteNote(selectedNote.id);
+                    setSelectedNote(null);
+                  }}
+                  className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+          {selectedNote && (
+            <div className="space-y-4">
+              {/* Title */}
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 break-words">
+                  {selectedNote.title}
+                </h2>
+              </div>
+
+              {/* Company */}
+              {selectedNote.company && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 rounded-lg">
+                  <Building2 className="h-5 w-5 text-red-600" />
+                  <span className="text-red-600 font-medium">{selectedNote.company}</span>
+                </div>
+              )}
+
+              {/* Full Content */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Details</h3>
+                <p className="text-[14px] text-gray-600 leading-relaxed whitespace-pre-wrap break-words bg-gray-50 p-4 rounded-lg">
+                  {selectedNote.content}
+                </p>
+              </div>
+
+              {/* Footer Info with Action Buttons */}
+              <div className="pt-4 border-t border-gray-200 flex items-center justify-between">
+                <div className="flex items-center gap-6 text-sm text-gray-500">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    <span>{selectedNote.createdBy}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    <span>{selectedNote.createdAt}</span>
+                  </div>
+                </div>
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      handleEditNote(selectedNote);
+                      setSelectedNote(null);
+                    }}
+                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                    title="Edit"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleDeleteNote(selectedNote.id);
+                      setSelectedNote(null);
+                    }}
+                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Note Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Note</DialogTitle>
+          </DialogHeader>
+          {editingNote && (
+            <div className="space-y-4">
+              {/* Title */}
+              <div>
+                <Label htmlFor="editTitle">Title</Label>
+                <Input
+                  id="editTitle"
+                  value={editingNote.title}
+                  onChange={(e) => setEditingNote({ ...editingNote, title: e.target.value })}
+                  placeholder="Enter note title"
+                  className="mt-1 border-red-500 focus:border-red-500 focus:ring-red-500"
+                />
+              </div>
+
+              {/* Content */}
+              <div>
+                <Label htmlFor="editContent">Content</Label>
+                <Textarea
+                  id="editContent"
+                  value={editingNote.content}
+                  onChange={(e) => setEditingNote({ ...editingNote, content: e.target.value })}
+                  placeholder="Write your note..."
+                  className="mt-1 min-h-[120px] resize-none"
+                />
+              </div>
+
+              {/* Status */}
+              <div>
+                <Label htmlFor="editStatus">Status</Label>
+                <Select value={editingNote.category} onValueChange={(value) => setEditingNote({ ...editingNote, category: value as TodoStatus })}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                  onClick={handleSaveEdit}
+                >
+                  Save Changes
+                </Button>
+                <Button 
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700"
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setEditingNote(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
