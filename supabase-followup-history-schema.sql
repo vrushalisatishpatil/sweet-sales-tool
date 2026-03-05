@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS follow_up_history (
   follow_up_date DATE,
   next_follow_up TEXT,
   next_follow_up_date DATE,
+  follow_up_status TEXT DEFAULT 'Pending',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

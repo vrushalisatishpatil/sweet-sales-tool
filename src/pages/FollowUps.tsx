@@ -16,6 +16,7 @@ interface FollowUp {
   completed: boolean;
   nextFollowUpDate?: string;
   nextAction?: string;
+  followUpStatus?: string;
 }
 import { Phone, Mail, MessageCircle, MapPin, ArrowRight, Calendar, Edit, History, Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,7 @@ const FollowUps = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [assigneeFilter, setAssigneeFilter] = useState("All");
-  const [completionFilter, setCompletionFilter] = useState<"All" | "Pending" | "Completed">("Pending");
+  const [completionFilter, setCompletionFilter] = useState<"All" | "Pending" | "In Progress" | "Completed">("All");
   const [dateFilter, setDateFilter] = useState<"All" | "Today" | "This Week" | "Custom">("All");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
@@ -68,15 +69,17 @@ const FollowUps = () => {
   const [followUpDate, setFollowUpDate] = useState("");
   const [nextFollowUp, setNextFollowUp] = useState("");
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
+  const [followUpStatus, setFollowUpStatus] = useState<"Pending" | "In Progress" | "Completed">("Pending");
   
   // History state
   const [followUpHistory, setFollowUpHistory] = useState<Array<{
     id: string;
-    discussion: string;
+    description: string;
     follow_up_by: string;
     follow_up_date: string;
     next_follow_up: string;
     next_follow_up_date: string;
+    follow_up_status: string;
     created_at: string;
   }>>([]);
 
@@ -116,20 +119,32 @@ const FollowUps = () => {
       
       if (error) throw error;
       
-      // Transform the data to match FollowUp interface
-      const transformedData: FollowUp[] = (data || []).map((lead) => ({
-        id: lead.id,
-        company: lead.company || '',
-        contact: lead.contact || '',
-        phone: lead.phone || '',
-        method: 'Call', // Default method
-        note: lead.remarks || '',
-        by: lead.assigned_to || '',
-        date: lead.inquiry_date || new Date(lead.created_at).toISOString().split('T')[0],
-        status: lead.status || 'New',
-        completed: false,
-        nextFollowUpDate: lead.next_follow_up_date || '',
-        nextAction: lead.remarks || ''
+      // Fetch latest follow-up status for each lead
+      const transformedData: FollowUp[] = await Promise.all((data || []).map(async (lead) => {
+        // Get the latest follow-up history entry for this lead
+        const { data: historyData } = await supabase
+          .from('follow_up_history')
+          .select('follow_up_status')
+          .eq('lead_id', lead.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        
+        return {
+          id: lead.id,
+          company: lead.company || '',
+          contact: lead.contact || '',
+          phone: lead.phone || '',
+          method: 'Call', // Default method
+          note: lead.remarks || '',
+          by: lead.assigned_to || '',
+          date: lead.inquiry_date || new Date(lead.created_at).toISOString().split('T')[0],
+          status: lead.status || 'New',
+          completed: false,
+          nextFollowUpDate: lead.next_follow_up_date || '',
+          nextAction: lead.remarks || '',
+          followUpStatus: historyData?.follow_up_status || 'Pending'
+        };
       }));
       
       setFollowUpData(transformedData);
@@ -215,9 +230,7 @@ const FollowUps = () => {
 
   const filteredFollowUps = followUpData.filter((item) => {
     if (completionFilter !== "All") {
-      const isCompleted = item.completed;
-      if (completionFilter === "Completed" && !isCompleted) return false;
-      if (completionFilter === "Pending" && isCompleted) return false;
+      if (completionFilter !== item.followUpStatus) return false;
     }
 
     if (statusFilter !== "All" && item.status !== statusFilter) return false;
@@ -267,6 +280,7 @@ const FollowUps = () => {
     setSelectedFollowUp(followUp);
     setIsHistoryView(false);
     setSelectedStatus(followUp.status as any);
+    setFollowUpStatus((followUp.followUpStatus as "Pending" | "In Progress" | "Completed") || "Pending");
     setDiscussion(followUp.note);
     setFollowUpBy(followUp.by);
     setFollowUpDate(followUp.date);
@@ -306,6 +320,7 @@ const FollowUps = () => {
             follow_up_date: followUpDate,
             next_follow_up: nextFollowUp,
             next_follow_up_date: nextFollowUpDate,
+            follow_up_status: followUpStatus,
           }
         ]);
       
@@ -385,14 +400,15 @@ const FollowUps = () => {
             </div>
           )}
           <div className="w-36 space-y-2">
-            <Label className="text-xs">Completion</Label>
-            <Select value={completionFilter} onValueChange={(value) => setCompletionFilter(value as "All" | "Pending" | "Completed")}>
+            <Label className="text-xs">Follow-up Status</Label>
+            <Select value={completionFilter} onValueChange={(value) => setCompletionFilter(value as "All" | "Pending" | "In Progress" | "Completed")}>
               <SelectTrigger className="h-9">
-                <SelectValue placeholder="Completion" />
+                <SelectValue placeholder="Follow-up Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="All">All</SelectItem>
                 <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="In Progress">In Progress</SelectItem>
                 <SelectItem value="Completed">Completed</SelectItem>
               </SelectContent>
             </Select>
@@ -515,10 +531,21 @@ const FollowUps = () => {
                   <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
                   WhatsApp
                 </Button>
-                <div 
-                  className={`px-2.5 py-0.5 text-xs rounded-full border-0 font-medium h-auto w-fit inline-block ${getStatusColor(fu.status)}`}
-                >
-                  {fu.status}
+                <div className="flex flex-col gap-1.5">
+                  <div 
+                    className={`px-2.5 py-0.5 text-xs rounded-full border-0 font-medium h-auto w-fit inline-block ${getStatusColor(fu.status)}`}
+                  >
+                    {fu.status}
+                  </div>
+                  <div 
+                    className={`px-2.5 py-0.5 text-xs rounded-full border-0 font-medium h-auto w-fit inline-block ${
+                      fu.followUpStatus === 'Completed' ? 'bg-green-100 text-green-700' :
+                      fu.followUpStatus === 'In Progress' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    {fu.followUpStatus || 'Pending'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -589,21 +616,37 @@ const FollowUps = () => {
                   />
                 </div>
 
-                {/* Status */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Status</Label>
-                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[280px] overflow-y-auto">
-                      {statusOptions.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                {/* Status and Follow-up Status */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Status</Label>
+                    <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[280px] overflow-y-auto">
+                        {statusOptions.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Follow-up Status</Label>
+                    <Select value={followUpStatus} onValueChange={(value) => setFollowUpStatus(value as "Pending" | "In Progress" | "Completed")}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select follow-up status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Pending">Pending</SelectItem>
+                        <SelectItem value="In Progress">In Progress</SelectItem>
+                        <SelectItem value="Completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 {/* Follow-up By and Follow-up Date */}
@@ -678,7 +721,18 @@ const FollowUps = () => {
                       
                       return (
                         <div key={history.id} className="rounded-lg border-2 border-gray-200 p-4 bg-gray-50">
-                          <h4 className="text-sm font-semibold text-gray-900 mb-3">{number}{ordinal} Follow-up</h4>
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-sm font-semibold text-gray-900">{number}{ordinal} Follow-up</h4>
+                            <div 
+                              className={`px-2.5 py-0.5 text-xs rounded-full border-0 font-medium h-auto w-fit ${
+                                history.follow_up_status === 'Completed' ? 'bg-green-100 text-green-700' :
+                                history.follow_up_status === 'In Progress' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-gray-100 text-gray-700'
+                              }`}
+                            >
+                              {history.follow_up_status || 'Pending'}
+                            </div>
+                          </div>
                           <div className="space-y-3">
                             <div>
                               <Label className="text-sm font-medium text-gray-700">Discussion</Label>

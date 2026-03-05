@@ -43,6 +43,7 @@ const AssignTasks = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [salesTeamMembers, setSalesTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
@@ -72,10 +73,26 @@ const AssignTasks = () => {
     "Urgent"
   ];
 
-  // Fetch tasks from Supabase
+  // Fetch tasks and sales team from Supabase
   useEffect(() => {
     fetchTasks();
+    fetchSalesTeam();
   }, []);
+
+  const fetchSalesTeam = async () => {
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('sales_team')
+        .select('id, name')
+        .eq('status', 'Active')
+        .order('name', { ascending: true });
+
+      if (fetchError) throw fetchError;
+      setSalesTeamMembers(data || []);
+    } catch (err) {
+      console.error('Error fetching sales team:', err);
+    }
+  };
 
   const fetchTasks = async () => {
     try {
@@ -602,10 +619,11 @@ const AssignTasks = () => {
                   <SelectValue placeholder="Select person" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Rahul Sharma">Rahul Sharma</SelectItem>
-                  <SelectItem value="Priya Patel">Priya Patel</SelectItem>
-                  <SelectItem value="Amit Kumar">Amit Kumar</SelectItem>
-                  <SelectItem value="Sneha Gupta">Sneha Gupta</SelectItem>
+                  {salesTeamMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.name}>
+                      {member.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -757,13 +775,18 @@ const AssignTasks = () => {
               {/* Assigned To */}
               <div>
                 <Label htmlFor="editAssignedTo">Assigned To</Label>
-                <Input
-                  id="editAssignedTo"
-                  value={editingTask.assignedTo}
-                  onChange={(e) => setEditingTask({ ...editingTask, assignedTo: e.target.value })}
-                  placeholder="Enter assignee name"
-                  className="mt-1"
-                />
+                <Select value={editingTask.assignedTo} onValueChange={(value) => setEditingTask({ ...editingTask, assignedTo: value })}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select person" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {salesTeamMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.name}>
+                        {member.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Priority */}

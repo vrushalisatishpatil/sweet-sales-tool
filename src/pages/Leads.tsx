@@ -726,7 +726,6 @@ const Leads = () => {
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">STATE</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">COUNTRY</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">ASSIGNED TO</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">NEXT FOLLOW-UP</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">STATUS</th>
               </tr>
             </thead>
@@ -747,9 +746,6 @@ const Leads = () => {
                   <td className="px-4 py-3 text-sm text-muted-foreground">{lead.state}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{lead.country}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{lead.assignedTo}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">
-                    {lead.nextFollowUpDate ? formatDateDDMMYYYY(lead.nextFollowUpDate) : '-'}
-                  </td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(lead.status)}`}>
                       {lead.status}
