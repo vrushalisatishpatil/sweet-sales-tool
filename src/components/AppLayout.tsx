@@ -280,9 +280,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         <aside className={`${collapsed ? "w-16" : "w-52"} flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-200`}>
           {/* Logo */}
           <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
-              W
-            </div>
+            <img src="/waxity-icon.svg" alt="Waxity Logo" className="h-10 w-auto object-contain" />
             {!collapsed && (
               <div className="leading-tight">
                 <div className="text-sm font-bold text-foreground">WAXITY</div>

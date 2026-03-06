@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Plus, Search, FileText, Building2, User, Calendar, X, Filter, Check, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, FileText, Building2, User, Calendar, X, Filter, Check, Pencil, Trash2, CheckCircle2, Clock, AlertTriangle, ListTodo, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/lib/supabase";
 import { useUser } from "@/context/UserContext";
 import { formatDateDDMMYYYY } from "@/lib/utils";
@@ -30,7 +31,6 @@ const AddNotes = () => {
   const [creatorLabel, setCreatorLabel] = useState<string>("Admin");
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
-  const [filterDropdown, setFilterDropdown] = useState("All To Do's");
   const [isAddNoteDialogOpen, setIsAddNoteDialogOpen] = useState(false);
   const [selectedNote, setSelectedNote] = useState<TodoItem | null>(null);
   const [editingNote, setEditingNote] = useState<TodoItem | null>(null);
@@ -272,7 +272,7 @@ const AddNotes = () => {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">To Do's</h1>
-          <p className="text-sm text-muted-foreground">{totalNotes} to do's</p>
+          <p className="text-sm text-muted-foreground">{totalNotes} to do's found</p>
         </div>
         <button 
           onClick={handleOpenAddNoteDialog}
@@ -282,8 +282,40 @@ const AddNotes = () => {
         </button>
       </div>
 
-      {/* Search and Filter */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      {/* Statistics Cards */}
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-muted-foreground">Total To Do's</p>
+            <ListTodo className="h-5 w-5 text-blue-600" />
+          </div>
+          <p className="text-3xl font-bold text-foreground">{totalNotes}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-muted-foreground">Pending</p>
+            <Clock className="h-5 w-5 text-yellow-600" />
+          </div>
+          <p className="text-3xl font-bold text-foreground">{pendingCount}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-muted-foreground">In Progress</p>
+            <AlertTriangle className="h-5 w-5 text-blue-600" />
+          </div>
+          <p className="text-3xl font-bold text-foreground">{inProgressCount}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-muted-foreground">Completed</p>
+            <CheckCircle2 className="h-5 w-5 text-green-600" />
+          </div>
+          <p className="text-3xl font-bold text-foreground">{completedCount}</p>
+        </div>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="mb-6 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 rounded-lg border border-input bg-card px-3 py-2 flex-1 min-w-[200px] max-w-md">
           <Search className="h-4 w-4 text-muted-foreground" />
           <input 
@@ -294,192 +326,127 @@ const AddNotes = () => {
             className="w-full border-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground" 
           />
         </div>
-        <Select value={filterDropdown} onValueChange={handleFilterChange}>
-          <SelectTrigger className="w-[180px]">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              <SelectValue placeholder="All To Do's" />
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50">
+              <Filter className="h-4 w-4 text-gray-600" />
+              <span>{categoryFilter === "All" ? "All To Do's" : categoryFilter}</span>
+              <ChevronDown className="h-4 w-4 text-gray-500" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[180px] p-0" align="start">
+            <div className="py-1">
+              {["All", "Completed", "In Progress", "Pending"].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => {
+                    setCategoryFilter(status);
+                  }}
+                  className={`w-full px-3 py-2 text-sm text-left flex items-center gap-2 ${
+                    categoryFilter === status
+                      ? "bg-red-600 text-white"
+                      : "hover:bg-gray-100 text-gray-900"
+                  }`}
+                >
+                  {categoryFilter === status && <Check className="h-4 w-4" />}
+                  <span className={categoryFilter === status ? "" : "ml-6"}>
+                    {status === "All" ? "All To Do's" : status}
+                  </span>
+                </button>
+              ))}
             </div>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All To Do's" className="data-[state=checked]:bg-red-600 data-[state=checked]:text-white">
-              <div className="flex items-center gap-2">
-                {filterDropdown === "All To Do's" && <Check className="h-4 w-4" />}
-                All To Do's
-              </div>
-            </SelectItem>
-            <SelectItem value="Completed" className="data-[state=checked]:bg-red-600 data-[state=checked]:text-white">
-              <div className="flex items-center gap-2">
-                {filterDropdown === "Completed" && <Check className="h-4 w-4" />}
-                Completed
-              </div>
-            </SelectItem>
-            <SelectItem value="In Progress" className="data-[state=checked]:bg-red-600 data-[state=checked]:text-white">
-              <div className="flex items-center gap-2">
-                {filterDropdown === "In Progress" && <Check className="h-4 w-4" />}
-                In Progress
-              </div>
-            </SelectItem>
-            <SelectItem value="Pending" className="data-[state=checked]:bg-red-600 data-[state=checked]:text-white">
-              <div className="flex items-center gap-2">
-                {filterDropdown === "Pending" && <Check className="h-4 w-4" />}
-                Pending
-              </div>
-            </SelectItem>
-          </SelectContent>
-        </Select>
+          </PopoverContent>
+        </Popover>
       </div>
 
-      {/* Category Tabs */}
-      <div className="mb-6 flex gap-2">
-        <button
-          onClick={() => {
-            setCategoryFilter("All");
-            setFilterDropdown("All To Do's");
-          }}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            categoryFilter === "All"
-              ? "bg-red-600 text-white"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-        >
-          All ({totalNotes})
-        </button>
-        <button
-          onClick={() => {
-            setCategoryFilter("Completed");
-            setFilterDropdown("Completed");
-          }}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            categoryFilter === "Completed"
-              ? "bg-red-600 text-white"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-        >
-          Completed ({completedCount})
-        </button>
-        <button
-          onClick={() => {
-            setCategoryFilter("In Progress");
-            setFilterDropdown("In Progress");
-          }}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            categoryFilter === "In Progress"
-              ? "bg-red-600 text-white"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-        >
-          In Progress ({inProgressCount})
-        </button>
-        <button
-          onClick={() => {
-            setCategoryFilter("Pending");
-            setFilterDropdown("Pending");
-          }}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            categoryFilter === "Pending"
-              ? "bg-red-600 text-white"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-        >
-          Pending ({pendingCount})
-        </button>
-      </div>
-
-      {/* Notes Grid */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredNotes.sort((a, b) => {
-          // Pending items first, then In Progress, then Completed
-          const order: Record<string, number> = { "Pending": 0, "In Progress": 1, "Completed": 2 };
-          return (order[a.category] ?? 99) - (order[b.category] ?? 99);
-        }).map((note) => (
-          <div 
-            key={note.id} 
-            className={`rounded-lg border ${
-              note.category === "Completed"
-                ? "border-l-4 border-l-red-500"
-                : note.category === "In Progress"
-                ? "border-l-4 border-l-blue-400"
-                : "border-l-4 border-l-gray-300"
-            } border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow relative flex flex-col h-full`}
-          >
-            {/* Status Dropdown */}
-            <div className="mb-3 flex items-center gap-2 pr-10">
-              <Select value={note.category} onValueChange={(value) => handleStatusChange(note.id, value)}>
-                <SelectTrigger className={`h-7 px-2 text-xs font-medium w-fit ${
-                  note.category === "Pending" 
-                    ? "bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-150" 
-                    : note.category === "Completed"
-                    ? "bg-red-100 text-red-700 border-red-300 hover:bg-red-150"
-                    : note.category === "In Progress"
-                    ? "bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-150"
-                    : "bg-gray-100 text-gray-700"
-                }`}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Title - Truncated to 2 lines */}
-            <h3 className="text-[15px] font-bold text-gray-900 mb-2 pr-6 leading-tight line-clamp-2 cursor-pointer hover:text-red-600 transition-colors"
-              onClick={() => setSelectedNote(note)}>
-              {note.title}
-            </h3>
-
-            {/* Company/Lead (if applicable) */}
-            {note.company && (
-              <div className="flex items-center gap-1.5 mb-2">
-                <Building2 className="h-3.5 w-3.5 text-red-600 flex-shrink-0" />
-                <span className="text-[13px] text-red-600 font-medium truncate">{note.company}</span>
-              </div>
-            )}
-
-            {/* Content - Truncated to 4 lines with scrollable container for expansion */}
-            <div 
-              className="flex-1 overflow-hidden mb-3 cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => setSelectedNote(note)}
-            >
-              <p className="text-[13px] text-gray-600 leading-relaxed line-clamp-4 break-words">
-                {note.content}
-              </p>
-              {note.content && note.content.length > 100 && (
-                <p className="text-[11px] text-blue-500 mt-1 font-medium">Click to view full details</p>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between text-[11px] text-gray-500 pt-2 border-t border-gray-200">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1 truncate">
-                  <User className="h-3 w-3 flex-shrink-0" />
-                  <span className="truncate">{note.createdBy}</span>
+      {/* To Do Cards */}
+      <div className="space-y-4">
+        {filteredNotes.map((note) => (
+          <div key={note.id} className="rounded-xl border border-border bg-card p-5 hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 cursor-pointer min-w-0" onClick={() => setSelectedNote(note)}>
+                {/* Status Badge */}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${
+                    note.category === "Completed"
+                      ? "bg-green-100 text-green-700 border-green-300"
+                      : note.category === "In Progress"
+                      ? "bg-blue-100 text-blue-700 border-blue-300"
+                      : "bg-yellow-100 text-yellow-700 border-yellow-300"
+                  }`}>
+                    {note.category}
+                  </span>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <Calendar className="h-3 w-3" />
-                  <span>{note.createdAt}</span>
+
+                {/* Title - Truncated */}
+                <h3 className="text-base font-semibold text-foreground mb-2 line-clamp-2 break-words hover:text-red-600 transition-colors">{note.title}</h3>
+
+                {/* Description - Truncated */}
+                <p className="text-sm text-muted-foreground mb-4 line-clamp-3 break-words">{note.content}</p>
+                {note.content && note.content.length > 150 && (
+                  <p className="text-[11px] text-blue-500 mb-2 font-medium">Click to view full details</p>
+                )}
+
+                {/* Meta Information */}
+                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <User className="h-4 w-4" />
+                    <span>{note.createdBy}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-4 w-4" />
+                    <span>{note.createdAt}</span>
+                  </div>
                 </div>
               </div>
-              {/* Edit and Delete Buttons */}
-              <div className="flex items-center gap-2">
+
+              {/* Action Buttons & Status Dropdown */}
+              <div className="shrink-0 flex items-center gap-2">
+                {/* Edit Button */}
                 <button
                   onClick={() => handleEditNote(note)}
-                  className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                   title="Edit"
                 >
-                  <Pencil className="h-3.5 w-3.5" />
+                  <Pencil className="h-4 w-4" />
                 </button>
+
+                {/* Delete Button */}
                 <button
                   onClick={() => handleDeleteNote(note.id)}
-                  className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                   title="Delete"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 className="h-4 w-4" />
                 </button>
+
+                {/* Status Dropdown */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50">
+                      <span>{note.category}</span>
+                      <ChevronDown className="h-3 w-3 text-gray-500" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[160px] p-0" align="end">
+                    <div className="py-1">
+                      {["Pending", "In Progress", "Completed"].map((status) => (
+                        <button
+                          key={status}
+                          onClick={() => handleStatusChange(note.id, status)}
+                          className={`w-full px-3 py-2 text-sm text-left flex items-center gap-2 ${
+                            note.category === status
+                              ? "bg-red-600 text-white"
+                              : "hover:bg-gray-100 text-gray-900"
+                          }`}
+                        >
+                          {note.category === status && <Check className="h-4 w-4" />}
+                          <span className={note.category === status ? "" : "ml-6"}>{status}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </div>
@@ -488,7 +455,7 @@ const AddNotes = () => {
 
       {filteredNotes.length === 0 && (
         <div className="rounded-xl border border-border bg-card p-12 text-center">
-          <p className="text-muted-foreground">No notes found</p>
+          <p className="text-muted-foreground">No to do's found</p>
         </div>
       )}
 
