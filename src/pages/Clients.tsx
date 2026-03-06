@@ -410,20 +410,24 @@ const Clients = () => {
             onChange={handleFileUpload}
             className="hidden"
           />
-          <button 
-            onClick={handleDownloadTemplate}
-            className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-            title="Download CSV template"
-          >
-            <Download className="h-4 w-4" /> Template
-          </button>
-          <button 
-            onClick={handleImportClick}
-            className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-            title="Import clients from CSV or Excel file"
-          >
-            <Upload className="h-4 w-4" /> Import Excel
-          </button>
+          {userRole === "admin" && (
+            <button
+              onClick={handleDownloadTemplate}
+              className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              title="Download CSV template"
+            >
+              <Download className="h-4 w-4" /> Template
+            </button>
+          )}
+          {userRole === "admin" && (
+            <button
+              onClick={handleImportClick}
+              className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              title="Import clients from CSV or Excel file"
+            >
+              <Upload className="h-4 w-4" /> Import Excel
+            </button>
+          )}
           {userRole === "admin" && (
             <button 
               onClick={() => {
