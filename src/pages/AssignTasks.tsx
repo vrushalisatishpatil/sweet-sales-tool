@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { Plus, Search, ListTodo, Clock, AlertTriangle, CheckCircle2, User, Calendar, Building2, Filter, Check, ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/lib/supabase";
-import { formatDateDDMMYYYY } from "@/lib/utils";
+import { formatDateDDMMYYYY, convertDDMMYYYYtoISO, convertISOtoDDMMYYYY } from "@/lib/utils";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 import type { TaskPriority, TaskStatus } from "@/types/database.types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -645,13 +647,10 @@ const AssignTasks = () => {
               </div>
               <div>
                 <Label htmlFor="dueDate">Due Date</Label>
-                <Input
-                  id="dueDate"
-                  type="date"
+                <DatePicker
                   value={newTask.dueDate}
-                  onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
-                  placeholder="mm/dd/yyyy"
-                  className="mt-1"
+                  onChange={(date) => setNewTask({ ...newTask, dueDate: date })}
+                  className="w-full mt-1"
                 />
               </div>
             </div>
@@ -808,12 +807,10 @@ const AssignTasks = () => {
               {/* Due Date */}
               <div>
                 <Label htmlFor="editDueDate">Due Date</Label>
-                <Input
-                  id="editDueDate"
-                  type="date"
+                <DatePicker
                   value={editingTask.dueDate}
-                  onChange={(e) => setEditingTask({ ...editingTask, dueDate: e.target.value })}
-                  className="mt-1"
+                  onChange={(date) => setEditingTask({ ...editingTask, dueDate: date })}
+                  className="w-full mt-1"
                 />
               </div>
 

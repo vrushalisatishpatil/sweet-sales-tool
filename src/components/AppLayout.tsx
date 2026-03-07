@@ -175,8 +175,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           <div className="grid grid-cols-1 md:grid-cols-2">
             <div className="hidden md:flex flex-col justify-between bg-red-600 p-8 text-white">
               <div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white text-lg font-bold text-red-600">
-                  W
+                <div className="flex items-center justify-center rounded-lg bg-white p-3">
+                  <img src="/Waxity Logo full.png" alt="Waxity Lubricant" className="h-20 w-auto object-contain" />
                 </div>
                 <h1 className="mt-6 text-3xl font-bold tracking-tight font-serif">Waxity Leads</h1>
                 <p className="mt-2 text-sm text-red-100">Lead Management System</p>
@@ -279,8 +279,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         {/* Sidebar */}
         <aside className={`${collapsed ? "w-16" : "w-52"} flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-200`}>
           {/* Logo */}
-          <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
-            <img src="/waxity-icon.svg" alt="Waxity Logo" className="h-10 w-auto object-contain" />
+          <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-3 py-2">
+            <img
+              src="/Waxity Logo.png"
+              alt="Waxity Logo"
+              className={`${collapsed ? "h-10" : "h-12"} w-auto object-contain shrink-0`}
+            />
             {!collapsed && (
               <div className="leading-tight">
                 <div className="text-sm font-bold text-foreground">WAXITY</div>

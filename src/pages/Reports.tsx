@@ -9,6 +9,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useUser } from "@/context/UserContext";
 import type { LeadStatus } from "@/types/database.types";
+import { DatePicker } from "@/components/ui/date-picker";
 
 const Reports = () => {
   const { userRole, userName } = useUser();
@@ -23,8 +24,8 @@ const Reports = () => {
     status: "Active" | "Inactive";
   }>>([]);
   const [leadsData, setLeadsData] = useState<Array<{ status: LeadStatus }>>([]);
-  const [dateFrom, setDateFrom] = useState("02/01/2025");
-  const [dateTo, setDateTo] = useState("02/13/2025");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selectedPerson, setSelectedPerson] = useState("All Sales Persons");
   const [selectedStatus, setSelectedStatus] = useState("All Status");
   const [isStatusOpen, setIsStatusOpen] = useState(false);
@@ -148,25 +149,21 @@ const Reports = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-2">Date From</label>
-            <div className="relative">
-              <input 
-                type="date" 
-                value="2025-02-01"
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white"
-              />
-            </div>
+            <DatePicker
+              value={dateFrom}
+              onChange={setDateFrom}
+              placeholder="From Date"
+              className="w-full"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-2">Date To</label>
-            <div className="relative">
-              <input 
-                type="date" 
-                value="2025-02-13"
-                onChange={(e) => setDateTo(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white"
-              />
-            </div>
+            <DatePicker
+              value={dateTo}
+              onChange={setDateTo}
+              placeholder="To Date"
+              className="w-full"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-2">Sales Person</label>

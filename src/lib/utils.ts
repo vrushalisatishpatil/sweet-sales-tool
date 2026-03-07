@@ -35,3 +35,25 @@ export function formatDateDDMMYYYY(value: string | Date | null | undefined): str
   const year = parsed.getFullYear();
   return `${day}-${month}-${year}`;
 }
+
+// Convert DD-MM-YYYY to YYYY-MM-DD for storage/comparison
+export function convertDDMMYYYYtoISO(value: string): string {
+  if (!value) return "";
+  const ddmmyyyyMatch = value.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (ddmmyyyyMatch) {
+    const [, day, month, year] = ddmmyyyyMatch;
+    return `${year}-${month}-${day}`;
+  }
+  return value;
+}
+
+// Convert YYYY-MM-DD to DD-MM-YYYY for display
+export function convertISOtoDDMMYYYY(value: string): string {
+  if (!value) return "";
+  const isoDateMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoDateMatch) {
+    const [, year, month, day] = isoDateMatch;
+    return `${day}-${month}-${year}`;
+  }
+  return value;
+}

@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, type ChangeEvent } from "react";
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/lib/supabase";
 import type { LeadStatus } from "@/types/database.types";
-import { Plus, Search, Filter, X, User, Phone, Mail, Upload, Download, Pencil, Trash2, RotateCw } from "lucide-react";
+import { Plus, Search, Filter, User, Phone, Mail, Upload, Download, Pencil, Trash2, RotateCw } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { formatDateDDMMYYYY } from "@/lib/utils";
+import { formatDateDDMMYYYY, convertDDMMYYYYtoISO, convertISOtoDDMMYYYY } from "@/lib/utils";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface Lead {
   id: string;
@@ -49,6 +50,10 @@ const getStatusColor = (status: LeadStatus) => {
   return colors[status] || "bg-gray-100 text-gray-700";
 };
 
+const getUniqueSortedValues = (values: string[]) => {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+};
+
 const Leads = () => {
   const { userRole, userName } = useUser();
   const [leadsData, setLeadsData] = useState<Lead[]>([]);
@@ -57,6 +62,12 @@ const Leads = () => {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("All");
+  const [filterAssignedTo, setFilterAssignedTo] = useState<string>("All");
+  const [filterDateFrom, setFilterDateFrom] = useState<string>("");
+  const [filterDateTo, setFilterDateTo] = useState<string>("");
+  const [filterCity, setFilterCity] = useState<string>("All");
+  const [filterState, setFilterState] = useState<string>("All");
+  const [filterCountry, setFilterCountry] = useState<string>("All");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<string>("");
@@ -202,11 +213,44 @@ const Leads = () => {
     return `${prefix}0001`;
   };
 
+  const cityOptions = getUniqueSortedValues(leadsData.map((lead) => lead.city));
+  const stateOptions = getUniqueSortedValues(leadsData.map((lead) => lead.state));
+  const countryOptions = getUniqueSortedValues(leadsData.map((lead) => lead.country));
+
   const filtered = leadsData.filter((l) => {
     const matchSearch = l.company.toLowerCase().includes(search.toLowerCase()) || l.contact.toLowerCase().includes(search.toLowerCase());
     const matchStatus = filterStatus === "All" || l.status === filterStatus;
-    return matchSearch && matchStatus;
+    const matchAssignedTo = filterAssignedTo === "All" || l.assignedTo === filterAssignedTo;
+    const matchCity = filterCity === "All" || l.city === filterCity;
+    const matchState = filterState === "All" || l.state === filterState;
+    const matchCountry = filterCountry === "All" || l.country === filterCountry;
+
+    let matchDateRange = true;
+    if (filterDateFrom || filterDateTo) {
+      const leadDate = new Date(l.createdAt);
+      if (filterDateFrom) {
+        const fromDate = new Date(filterDateFrom);
+        matchDateRange = matchDateRange && leadDate >= fromDate;
+      }
+      if (filterDateTo) {
+        const toDate = new Date(filterDateTo);
+        matchDateRange = matchDateRange && leadDate <= toDate;
+      }
+    }
+
+    return matchSearch && matchStatus && matchAssignedTo && matchCity && matchState && matchCountry && matchDateRange;
   });
+
+  const hasAdvancedFilters = filterAssignedTo !== "All" || filterDateFrom || filterDateTo || filterCity !== "All" || filterState !== "All" || filterCountry !== "All";
+
+  const clearAdvancedFilters = () => {
+    setFilterAssignedTo("All");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+    setFilterCity("All");
+    setFilterState("All");
+    setFilterCountry("All");
+  };
 
   const handleRowClick = (lead: Lead) => {
     setSelectedLead(lead);
@@ -698,19 +742,105 @@ const Leads = () => {
       </div>
 
       {/* Filters */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 rounded-lg border border-input bg-card px-3 py-1.5">
-          <Search className="h-4 w-4 text-muted-foreground" />
-          <input type="text" placeholder="Search leads..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-48 border-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
+      <div className="mb-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 rounded-lg border border-input bg-card px-3 py-1.5">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <input type="text" placeholder="Search leads..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-48 border-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
+          </div>
+
+          <div className="flex flex-1 flex-wrap items-center gap-2">
+            {userRole === "admin" && (
+              <Select value={filterAssignedTo} onValueChange={setFilterAssignedTo}>
+                <SelectTrigger className="h-9 w-[180px]">
+                  <SelectValue placeholder="Sales Person" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Sales Persons</SelectItem>
+                  {salesPersons.map((person) => (
+                    <SelectItem key={person.id} value={person.name}>{person.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            <DatePicker
+              value={filterDateFrom}
+              onChange={setFilterDateFrom}
+              placeholder="From Date"
+              className="h-9 w-[150px]"
+            />
+
+            <DatePicker
+              value={filterDateTo}
+              onChange={setFilterDateTo}
+              placeholder="To Date"
+              className="h-9 w-[150px]"
+            />
+
+            <Select value={filterCity} onValueChange={setFilterCity}>
+              <SelectTrigger className="h-9 w-[140px]">
+                <SelectValue placeholder="City" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Cities</SelectItem>
+                {cityOptions.map((city) => (
+                  <SelectItem key={city} value={city}>{city}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterState} onValueChange={setFilterState}>
+              <SelectTrigger className="h-9 w-[140px]">
+                <SelectValue placeholder="State" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All States</SelectItem>
+                {stateOptions.map((state) => (
+                  <SelectItem key={state} value={state}>{state}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterCountry} onValueChange={setFilterCountry}>
+              <SelectTrigger className="h-9 w-[150px]">
+                <SelectValue placeholder="Country" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Countries</SelectItem>
+                {countryOptions.map((country) => (
+                  <SelectItem key={country} value={country}>{country}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {hasAdvancedFilters && (
+              <button
+                onClick={clearAdvancedFilters}
+                className="rounded-lg border border-input px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
+
+        {/* Status Filters - Horizontal */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center px-1" title="Filters">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+          </span>
           {statuses.map((s) => (
-            <button key={s} onClick={() => setFilterStatus(s)} className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${filterStatus === s ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground hover:bg-sidebar-accent"}`}>
+            <button
+              key={s}
+              onClick={() => setFilterStatus(s)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${filterStatus === s ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground hover:bg-sidebar-accent"}`}
+            >
               {s}
             </button>
           ))}
         </div>
+
       </div>
 
       {/* Table */}
@@ -932,11 +1062,10 @@ const Leads = () => {
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground mb-1.5 block">Next Follow-up</Label>
-                    <Input
-                      type="date"
+                    <DatePicker
                       value={nextFollowUpDate}
-                      onChange={(e) => setNextFollowUpDate(e.target.value)}
-                      placeholder="mm/dd/yyyy"
+                      onChange={setNextFollowUpDate}
+                      className="w-full"
                     />
                   </div>
                 </div>
@@ -960,13 +1089,10 @@ const Leads = () => {
               {/* Date */}
               <div>
                 <Label htmlFor="edit-date">Date</Label>
-                <Input
-                  id="edit-date"
-                  type="date"
+                <DatePicker
                   value={newLead.date}
-                  onChange={(e) => setNewLead({ ...newLead, date: e.target.value })}
-                  placeholder="mm/dd/yyyy"
-                  className="mt-1"
+                  onChange={(date) => setNewLead({ ...newLead, date })}
+                  className="w-full mt-1"
                 />
               </div>
 
@@ -1113,12 +1239,10 @@ const Leads = () => {
               {/* Next Follow-up Date */}
               <div>
                 <Label htmlFor="edit-nextFollowUpDate">Next Follow-up Date</Label>
-                <Input
-                  id="edit-nextFollowUpDate"
-                  type="date"
+                <DatePicker
                   value={newLead.nextFollowUpDate}
-                  onChange={(e) => setNewLead({ ...newLead, nextFollowUpDate: e.target.value })}
-                  className="mt-1"
+                  onChange={(date) => setNewLead({ ...newLead, nextFollowUpDate: date })}
+                  className="w-full mt-1"
                 />
               </div>
 
@@ -1153,13 +1277,10 @@ const Leads = () => {
             {/* Date */}
             <div>
               <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
-                type="date"
+              <DatePicker
                 value={newLead.date}
-                onChange={(e) => setNewLead({ ...newLead, date: e.target.value })}
-                placeholder="mm/dd/yyyy"
-                className="mt-1"
+                onChange={(date) => setNewLead({ ...newLead, date })}
+                className="w-full mt-1"
               />
             </div>
 
@@ -1310,12 +1431,10 @@ const Leads = () => {
             {/* Next Follow-up Date */}
             <div>
               <Label htmlFor="nextFollowUpDate">Next Follow-up Date</Label>
-              <Input
-                id="nextFollowUpDate"
-                type="date"
+              <DatePicker
                 value={newLead.nextFollowUpDate}
-                onChange={(e) => setNewLead({ ...newLead, nextFollowUpDate: e.target.value })}
-                className="mt-1"
+                onChange={(date) => setNewLead({ ...newLead, nextFollowUpDate: date })}
+                className="w-full mt-1"
               />
             </div>
 

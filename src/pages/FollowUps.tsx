@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/lib/supabase";
-import { formatDateDDMMYYYY } from "@/lib/utils";
+import { formatDateDDMMYYYY, convertDDMMYYYYtoISO, convertISOtoDDMMYYYY } from "@/lib/utils";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface FollowUp {
   id: string;
@@ -431,22 +433,18 @@ const FollowUps = () => {
             <>
               <div className="w-40 space-y-2">
                 <Label htmlFor="custom-start-date" className="text-xs">Start Date</Label>
-                <Input
-                  id="custom-start-date"
-                  type="date"
+                <DatePicker
                   value={customStartDate}
-                  onChange={(event) => setCustomStartDate(event.target.value)}
-                  className="h-9"
+                  onChange={setCustomStartDate}
+                  className="w-full h-9"
                 />
               </div>
               <div className="w-40 space-y-2">
                 <Label htmlFor="custom-end-date" className="text-xs">End Date</Label>
-                <Input
-                  id="custom-end-date"
-                  type="date"
+                <DatePicker
                   value={customEndDate}
-                  onChange={(event) => setCustomEndDate(event.target.value)}
-                  className="h-9"
+                  onChange={setCustomEndDate}
+                  className="w-full h-9"
                 />
               </div>
             </>
@@ -667,12 +665,10 @@ const FollowUps = () => {
                     <Label htmlFor="followUpDate" className="text-sm font-medium">
                       Follow-up Date
                     </Label>
-                    <Input
-                      id="followUpDate"
-                      type="date"
+                    <DatePicker
                       value={followUpDate}
-                      onChange={(e) => setFollowUpDate(e.target.value)}
-                      className="rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 border-2 border-gray-300 focus:border-red-500"
+                      onChange={setFollowUpDate}
+                      className="w-full"
                     />
                   </div>
                 </div>
@@ -696,13 +692,10 @@ const FollowUps = () => {
                     <Label htmlFor="nextFollowUpDate" className="text-sm font-medium">
                       Next Follow-up Date
                     </Label>
-                    <Input
-                      id="nextFollowUpDate"
-                      type="date"
+                    <DatePicker
                       value={nextFollowUpDate}
-                      onChange={(e) => setNextFollowUpDate(e.target.value)}
-                      placeholder="Select date"
-                      className="rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 border-2 border-gray-300 focus:border-red-500"
+                      onChange={setNextFollowUpDate}
+                      className="w-full"
                     />
                   </div>
                 </div>

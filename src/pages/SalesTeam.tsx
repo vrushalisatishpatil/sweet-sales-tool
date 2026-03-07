@@ -167,10 +167,14 @@ const SalesTeam = () => {
       setIsCreating(true);
       setError(null);
 
+      const oldName = editingPerson.name;
+      const newName = editFormData.name.trim();
+
+      // Update sales team member
       const { error: updateError } = await supabase
         .from('sales_team')
         .update({
-          name: editFormData.name.trim(),
+          name: newName,
           email: editFormData.email.trim(),
           phone: editFormData.phone.trim(),
           password: editFormData.password.trim(),
@@ -178,6 +182,49 @@ const SalesTeam = () => {
         .eq('id', editingPerson.id);
 
       if (updateError) throw updateError;
+
+      // If name changed, cascade update all related records
+      if (oldName !== newName) {
+        // Update leads.assigned_to
+        const { error: leadsError } = await supabase
+          .from('leads')
+          .update({ assigned_to: newName })
+          .eq('assigned_to', oldName);
+
+        if (leadsError) {
+          console.error('Error updating leads:', leadsError);
+        }
+
+        // Update tasks.assigned_to
+        const { error: tasksError } = await supabase
+          .from('tasks')
+          .update({ assigned_to: newName })
+          .eq('assigned_to', oldName);
+
+        if (tasksError) {
+          console.error('Error updating tasks:', tasksError);
+        }
+
+        // Update todos.created_by
+        const { error: todosError } = await supabase
+          .from('todos')
+          .update({ created_by: newName })
+          .eq('created_by', oldName);
+
+        if (todosError) {
+          console.error('Error updating todos:', todosError);
+        }
+
+        // Update follow_up_history.follow_up_by
+        const { error: followUpError } = await supabase
+          .from('follow_up_history')
+          .update({ follow_up_by: newName })
+          .eq('follow_up_by', oldName);
+
+        if (followUpError) {
+          console.error('Error updating follow-up history:', followUpError);
+        }
+      }
 
       await fetchSalesTeam();
       handleCloseEditDialog();
