@@ -30,7 +30,7 @@ interface Task {
 }
 
 const AssignTasks = () => {
-  const { userRole } = useUser();
+  const { userRole, userName } = useUser();
   const [tasksData, setTasksData] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +79,7 @@ const AssignTasks = () => {
   useEffect(() => {
     fetchTasks();
     fetchSalesTeam();
-  }, []);
+  }, [userRole, userName]);
 
   const fetchSalesTeam = async () => {
     try {
@@ -100,11 +100,24 @@ const AssignTasks = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      const { data, error: fetchError } = await supabase
+
+      // Salesperson should only see their own assigned tasks.
+      if (userRole === "salesperson" && !userName) {
+        setTasksData([]);
+        setTaskStatuses({});
+        return;
+      }
+
+      let query = supabase
         .from('tasks')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (userRole === "salesperson" && userName) {
+        query = query.eq('assigned_to', userName);
+      }
+
+      const { data, error: fetchError } = await query;
 
       if (fetchError) throw fetchError;
 
@@ -166,6 +179,7 @@ const AssignTasks = () => {
   };
 
   const handleDeleteTask = async (taskId: string) => {
+    if (userRole !== "admin") return;
     if (!confirm("Are you sure you want to delete this task?")) return;
 
     try {
@@ -185,6 +199,7 @@ const AssignTasks = () => {
   };
 
   const handleEditTask = (task: Task) => {
+    if (userRole !== "admin") return;
     setEditingTask({ ...task });
     setIsEditDialogOpen(true);
   };
@@ -514,23 +529,27 @@ const AssignTasks = () => {
 
               {/* Action Buttons & Status Dropdown */}
               <div className="shrink-0 flex items-center gap-2">
-                {/* Edit Button */}
-                <button
-                  onClick={() => handleEditTask(task)}
-                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                  title="Edit"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
+                {userRole === "admin" && (
+                  <>
+                    {/* Edit Button */}
+                    <button
+                      onClick={() => handleEditTask(task)}
+                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      title="Edit"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
 
-                {/* Delete Button */}
-                <button
-                  onClick={() => handleDeleteTask(task.id)}
-                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                  title="Delete"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                    {/* Delete Button */}
+                    <button
+                      onClick={() => handleDeleteTask(task.id)}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </>
+                )}
 
                 {/* Status Dropdown */}
                 <Popover open={openTaskDropdown === task.id} onOpenChange={(open) => setOpenTaskDropdown(open ? task.id : null)}>
@@ -681,7 +700,7 @@ const AssignTasks = () => {
               </span>
             </div>
             {/* Action Icons */}
-            {selectedTask && (
+            {selectedTask && userRole === "admin" && (
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => {

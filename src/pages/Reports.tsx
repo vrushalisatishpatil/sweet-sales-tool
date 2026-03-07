@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download, FileText, Check, ChevronDown } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import * as XLSX from "xlsx";
 import {
   Popover,
   PopoverContent,
@@ -23,7 +24,12 @@ const Reports = () => {
     rate: string;
     status: "Active" | "Inactive";
   }>>([]);
-  const [leadsData, setLeadsData] = useState<Array<{ status: LeadStatus }>>([]);
+  const [leadsData, setLeadsData] = useState<Array<{
+    status: LeadStatus;
+    assigned_to: string | null;
+    inquiry_date: string | null;
+    created_at: string;
+  }>>([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedPerson, setSelectedPerson] = useState("All Sales Persons");
@@ -64,7 +70,7 @@ const Reports = () => {
       try {
         let query = supabase
           .from("leads")
-          .select("status");
+          .select("status, assigned_to, inquiry_date, created_at");
         
         // Filter by assigned salesperson if not admin
         if (userRole === 'salesperson' && userName) {
@@ -74,7 +80,14 @@ const Reports = () => {
         const { data, error } = await query;
 
         if (error) throw error;
-        setLeadsData((data || []) as Array<{ status: LeadStatus }>);
+        setLeadsData(
+          (data || []) as Array<{
+            status: LeadStatus;
+            assigned_to: string | null;
+            inquiry_date: string | null;
+            created_at: string;
+          }>
+        );
       } catch (err) {
         console.error("Error fetching leads for reports:", err);
       }
@@ -82,18 +95,26 @@ const Reports = () => {
 
     fetchSalesTeam();
     fetchLeads();
-  }, []);
+  }, [userRole, userName]);
 
-  const personOptions = [
-    "All Sales Persons",
-    ...salesTeamData.map((person) => person.name),
-  ];
+  const personOptions = useMemo(() => {
+    if (userRole === "salesperson" && userName) {
+      return [userName];
+    }
 
-  const salesPerformanceData = salesTeamData.map((person) => ({
-    name: person.name,
-    leads: person.leads,
-    conversions: person.converted,
-  }));
+    return ["All Sales Persons", ...salesTeamData.map((person) => person.name)];
+  }, [salesTeamData, userRole, userName]);
+
+  useEffect(() => {
+    if (userRole === "salesperson" && userName) {
+      setSelectedPerson(userName);
+      return;
+    }
+
+    if (!personOptions.includes(selectedPerson)) {
+      setSelectedPerson("All Sales Persons");
+    }
+  }, [userRole, userName, personOptions, selectedPerson]);
 
   const statusColors: Record<LeadStatus, string> = {
     New: "#3b82f6",
@@ -108,17 +129,169 @@ const Reports = () => {
     Lost: "#f43f5e",
   };
 
-  const leadStatusDistribution = statusOptions
-    .filter((status) => status !== "All Status")
-    .map((status) => {
-      const typedStatus = status as LeadStatus;
-      return {
-        name: typedStatus,
-        value: leadsData.filter((lead) => lead.status === typedStatus).length,
-        color: statusColors[typedStatus],
-      };
-    })
-    .filter((item) => item.value > 0);
+  const filteredLeads = useMemo(() => {
+    return leadsData.filter((lead) => {
+      const leadDate = (lead.inquiry_date || lead.created_at.slice(0, 10)) ?? "";
+
+      if (dateFrom && leadDate < dateFrom) {
+        return false;
+      }
+
+      if (dateTo && leadDate > dateTo) {
+        return false;
+      }
+
+      if (selectedPerson !== "All Sales Persons" && lead.assigned_to !== selectedPerson) {
+        return false;
+      }
+
+      if (selectedStatus !== "All Status" && lead.status !== selectedStatus) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [leadsData, dateFrom, dateTo, selectedPerson, selectedStatus]);
+
+  const salesPerformanceData = useMemo(() => {
+    const validSalesPeople = new Set(salesTeamData.map((person) => person.name));
+    const countsByPerson = new Map<string, { leads: number; conversions: number }>();
+
+    if (userRole === "salesperson" && userName) {
+      countsByPerson.set(userName, { leads: 0, conversions: 0 });
+      validSalesPeople.add(userName);
+    } else {
+      // Initialize with known sales team members so empty values still render as 0.
+      salesTeamData.forEach((person) => {
+        countsByPerson.set(person.name, { leads: 0, conversions: 0 });
+      });
+    }
+
+    filteredLeads.forEach((lead) => {
+      const personName = lead.assigned_to;
+      if (!personName || !validSalesPeople.has(personName)) {
+        return;
+      }
+
+      const existing = countsByPerson.get(personName) || { leads: 0, conversions: 0 };
+      existing.leads += 1;
+      if (lead.status === "Converted") {
+        existing.conversions += 1;
+      }
+      countsByPerson.set(personName, existing);
+    });
+
+    return Array.from(countsByPerson.entries())
+      .filter(([name]) => selectedPerson === "All Sales Persons" || name === selectedPerson)
+      .map(([name, metrics]) => ({
+        name,
+        leads: metrics.leads,
+        conversions: metrics.conversions,
+      }));
+  }, [filteredLeads, salesTeamData, selectedPerson, userRole, userName]);
+
+  const leadStatusDistribution = useMemo(() => {
+    return statusOptions
+      .filter((status) => status !== "All Status")
+      .map((status) => {
+        const typedStatus = status as LeadStatus;
+        return {
+          name: typedStatus,
+          value: filteredLeads.filter((lead) => lead.status === typedStatus).length,
+          color: statusColors[typedStatus],
+        };
+      })
+      .filter((item) => item.value > 0);
+  }, [filteredLeads]);
+
+  const filteredLeadCount = filteredLeads.length;
+
+  const exportRows = useMemo(() => {
+    return filteredLeads.map((lead, index) => ({
+      "Sr No": index + 1,
+      "Assigned To": lead.assigned_to || "Unassigned",
+      Status: lead.status,
+      Date: lead.inquiry_date || lead.created_at.slice(0, 10),
+    }));
+  }, [filteredLeads]);
+
+  const getReportFileSuffix = () => {
+    const from = dateFrom || "start";
+    const to = dateTo || "today";
+    return `${from}_to_${to}`;
+  };
+
+  const handleExportExcel = () => {
+    if (exportRows.length === 0) return;
+
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Reports");
+    XLSX.writeFile(workbook, `reports_${getReportFileSuffix()}.xlsx`);
+  };
+
+  const handleExportPdf = () => {
+    if (exportRows.length === 0) return;
+
+    const printWindow = window.open("", "_blank", "width=1000,height=700");
+    if (!printWindow) return;
+
+    const rowsHtml = exportRows
+      .map(
+        (row) => `
+          <tr>
+            <td>${row["Sr No"]}</td>
+            <td>${row["Assigned To"]}</td>
+            <td>${row.Status}</td>
+            <td>${row.Date}</td>
+          </tr>
+        `
+      )
+      .join("");
+
+    const dateRangeLabel = `${dateFrom || "Any"} to ${dateTo || "Any"}`;
+    const statusLabel = selectedStatus;
+    const personLabel = selectedPerson;
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>Reports Export</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 24px; color: #111827; }
+            h1 { margin: 0 0 6px 0; font-size: 22px; }
+            .meta { margin-bottom: 16px; font-size: 13px; color: #374151; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+            th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; font-size: 12px; }
+            th { background: #f9fafb; }
+          </style>
+        </head>
+        <body>
+          <h1>Reports Export</h1>
+          <div class="meta">Date Range: ${dateRangeLabel}</div>
+          <div class="meta">Sales Person: ${personLabel} | Lead Status: ${statusLabel}</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Sr No</th>
+                <th>Assigned To</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
 
   return (
     <div>
@@ -129,10 +302,18 @@ const Reports = () => {
           <p className="text-sm text-muted-foreground">Sales performance analytics & exports</p>
         </div>
         <div className="flex gap-2">
-          <button className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors">
+          <button
+            onClick={handleExportExcel}
+            disabled={filteredLeadCount === 0}
+            className="flex items-center gap-2 rounded-lg border border-red-600 bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:border-red-300 disabled:bg-red-200"
+          >
             <Download className="h-4 w-4" /> Excel
           </button>
-          <button className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors">
+          <button
+            onClick={handleExportPdf}
+            disabled={filteredLeadCount === 0}
+            className="flex items-center gap-2 rounded-lg border border-red-600 bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:border-red-300 disabled:bg-red-200"
+          >
             <FileText className="h-4 w-4" /> PDF
           </button>
         </div>
@@ -237,37 +418,49 @@ const Reports = () => {
         {/* Sales Person Performance Chart */}
         <div className="rounded-lg border border-gray-200 bg-white p-5">
           <h3 className="mb-4 font-semibold text-gray-900">Sales Person Performance</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={salesPerformanceData}>
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Bar dataKey="leads" fill="hsl(210, 50%, 45%)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="conversions" fill="hsl(0, 72%, 51%)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {salesPerformanceData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={salesPerformanceData}>
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="leads" fill="hsl(210, 50%, 45%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="conversions" fill="hsl(0, 72%, 51%)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-[300px] items-center justify-center text-sm text-gray-500">
+              No lead data found for selected filters.
+            </div>
+          )}
         </div>
 
         {/* Status-wise Breakup Chart */}
         <div className="rounded-lg border border-gray-200 bg-white p-5">
           <h3 className="mb-4 font-semibold text-gray-900">Status-wise Breakup</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie 
-                data={leadStatusDistribution} 
-                cx="50%" 
-                cy="40%" 
-                innerRadius={60}
-                outerRadius={100} 
-                dataKey="value"
-              >
-                {leadStatusDistribution.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+          {leadStatusDistribution.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={leadStatusDistribution}
+                  cx="50%"
+                  cy="40%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  dataKey="value"
+                >
+                  {leadStatusDistribution.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-[300px] items-center justify-center text-sm text-gray-500">
+              No status data found for selected filters.
+            </div>
+          )}
           {/* Legend */}
           <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2">
             {leadStatusDistribution.map((item, i) => (
