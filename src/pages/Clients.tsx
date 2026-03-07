@@ -45,6 +45,20 @@ const mergeDuplicateClients = (clients: Client[]): Client[] => {
   return Array.from(clientMap.values());
 };
 
+const getErrorMessage = (error: unknown): string => {
+  if (error && typeof error === "object") {
+    const maybeError = error as { message?: string; code?: string; details?: string; hint?: string };
+    return maybeError.message || maybeError.details || maybeError.hint || "Unknown error";
+  }
+  return "Unknown error";
+};
+
+const isDuplicateIdError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") return false;
+  const maybeError = error as { code?: string; message?: string };
+  return maybeError.code === "23505" || maybeError.message?.toLowerCase().includes("duplicate key") === true;
+};
+
 const Clients = () => {
   const { userRole } = useUser();
   const [clientsData, setClientsData] = useState<Client[]>([]);
@@ -62,25 +76,36 @@ const Clients = () => {
   const [isLoading, setIsLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const normalizeCellValue = (value: unknown): string => String(value ?? "").trim();
+
+  const getNextClientSequence = async (): Promise<number> => {
+    const currentYear = new Date().getFullYear();
+    const yearPrefix = `CLIENT-${currentYear}-`;
+
+    const { data, error } = await supabase
+      .from("clients")
+      .select("id")
+      .like("id", `${yearPrefix}%`)
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    const latestId = data?.id;
+    if (!latestId) return 1;
+
+    const sequence = Number(latestId.replace(yearPrefix, ""));
+    return Number.isNaN(sequence) ? 1 : sequence + 1;
+  };
+
   // Generate client ID in format CLIENT-YYYY-NNNN
   const generateClientId = async (): Promise<string> => {
     const currentYear = new Date().getFullYear();
     const yearPrefix = `CLIENT-${currentYear}-`;
     
     try {
-      // Get all clients with current year to count them
-      const { data, error } = await supabase
-        .from('clients')
-        .select('id')
-        .like('id', `${yearPrefix}%`);
-      
-      if (error) {
-        console.error('Error counting clients:', error);
-        return `${yearPrefix}0001`; // Fallback to 0001
-      }
-      
-      const count = data?.length || 0;
-      const nextNumber = count + 1;
+      const nextNumber = await getNextClientSequence();
       const paddedNumber = String(nextNumber).padStart(4, '0');
       
       return `${yearPrefix}${paddedNumber}`;
@@ -117,20 +142,38 @@ const Clients = () => {
     if (!partyName.trim()) return;
     
     try {
-      const newId = await generateClientId();
-      
-      const { error } = await supabase
-        .from('clients')
-        .insert({
-          id: newId,
-          company: partyName,
-          pincode: pincode || null,
-          state: state || null,
-          main_area: mainArea || null,
-          sub_areas: multipleAreas,
-        });
-      
-      if (error) throw error;
+      let lastError: unknown = null;
+      let inserted = false;
+
+      // Retry a few times in case generated ID already exists due concurrent inserts.
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const newId = await generateClientId();
+
+        const { error } = await supabase
+          .from('clients')
+          .insert({
+            id: newId,
+            company: partyName.trim(),
+            pincode: pincode.trim() || null,
+            state: state.trim() || null,
+            main_area: mainArea.trim() || null,
+            sub_areas: multipleAreas,
+          });
+
+        if (!error) {
+          inserted = true;
+          break;
+        }
+
+        lastError = error;
+        if (!isDuplicateIdError(error)) {
+          throw error;
+        }
+      }
+
+      if (!inserted) {
+        throw lastError || new Error("Unable to generate a unique client ID");
+      }
       
       // Fetch updated clients list
       await fetchClients();
@@ -146,7 +189,7 @@ const Clients = () => {
       setAreaType("main");
     } catch (error) {
       console.error('Error adding client:', error);
-      alert('Error adding client. Please try again.');
+      alert(`Error adding client: ${getErrorMessage(error)}`);
     }
   };
 
@@ -271,76 +314,74 @@ const Clients = () => {
     
     reader.onload = async (e) => {
       try {
-        let importedClients: Omit<Client, 'id'>[] = [];
+        const workbook = isExcel
+          ? XLSX.read(new Uint8Array(e.target?.result as ArrayBuffer), { type: "array" })
+          : XLSX.read(e.target?.result as string, { type: "string" });
 
-        if (isExcel) {
-          // Parse Excel file
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheetName];
-          const rows = XLSX.utils.sheet_to_json<{[key: string]: string}>(worksheet);
-          
-          if (rows.length === 0) {
-            alert('File is empty or has insufficient data');
-            return;
-          }
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: "" });
 
-          importedClients = rows.map((row) => {
-            // Get values from row - handles different column name variations
-            const company = row['Company'] || row['company'] || '';
-            const pincode = row['Pincode'] || row['pincode'] || '';
-            const state = row['State'] || row['state'] || '';
-            const mainArea = row['Main Area'] || row['main area'] || row['mainArea'] || '';
-            const multipleAreasStr = row['Sub Area'] || row['sub area'] || row['subArea'] || row['Multiple Areas'] || row['multiple areas'] || row['multipleAreas'] || '';
+        if (rows.length === 0) {
+          alert("File is empty or has insufficient data");
+          return;
+        }
 
-            const multipleAreas = multipleAreasStr 
-              ? multipleAreasStr.split(';').map((a: string) => a.trim()).filter((a: string) => a)
+        const importedClients: Omit<Client, "id">[] = rows
+          .map((row) => {
+            const normalizedRow = Object.entries(row).reduce<Record<string, string>>((acc, [key, value]) => {
+              acc[key.trim().toLowerCase()] = normalizeCellValue(value);
+              return acc;
+            }, {});
+
+            const company =
+              normalizedRow["company"] ||
+              normalizedRow["party name"] ||
+              normalizedRow["client"] ||
+              "";
+            const pincode = normalizedRow["pincode"] || "";
+            const state = normalizedRow["state"] || "";
+            const mainArea =
+              normalizedRow["main area"] ||
+              normalizedRow["main_area"] ||
+              normalizedRow["mainarea"] ||
+              "";
+            const multipleAreasStr =
+              normalizedRow["sub area"] ||
+              normalizedRow["sub areas"] ||
+              normalizedRow["multiple areas"] ||
+              normalizedRow["multiple area"] ||
+              normalizedRow["sub_areas"] ||
+              "";
+
+            const multipleAreas = multipleAreasStr
+              ? multipleAreasStr
+                  .split(/[;,|]/)
+                  .map((area) => area.trim())
+                  .filter(Boolean)
               : [];
 
             return {
-              company: company || 'Unnamed Company',
+              company,
               pincode: pincode || null,
               state: state || null,
               main_area: mainArea || null,
               sub_areas: multipleAreas,
             };
-          });
-        } else {
-          // Parse CSV/TSV file
-          const text = e.target?.result as string;
-          const lines = text.split('\n').filter(line => line.trim());
-          
-          if (lines.length < 2) {
-            alert('File is empty or has insufficient data');
-            return;
-          }
+          })
+          .filter((client) => {
+            return Boolean(
+              client.company || client.pincode || client.state || client.main_area || client.sub_areas.length > 0
+            );
+          })
+          .map((client) => ({
+            ...client,
+            company: client.company || "Unnamed Company",
+          }));
 
-          // Parse CSV/TSV (detect delimiter)
-          const firstLine = lines[0];
-          const delimiter = firstLine.includes('\t') ? '\t' : ',';
-          
-          // Skip header row
-          const dataLines = lines.slice(1);
-          
-          importedClients = dataLines.map((line) => {
-            const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
-            
-            // Expected columns: Company, Pincode, State, Main Area, Sub Area
-            const [company, pincode, state, mainArea, multipleAreasStr] = values;
-            
-            const multipleAreas = multipleAreasStr 
-              ? multipleAreasStr.split(';').map(a => a.trim()).filter(a => a)
-              : [];
-            
-            return {
-              company: company || 'Unnamed Company',
-              pincode: pincode || null,
-              state: state || null,
-              main_area: mainArea || null,
-              sub_areas: multipleAreas,
-            };
-          });
+        if (importedClients.length === 0) {
+          alert("No valid rows found to import. Please fill at least Company or other fields.");
+          return;
         }
         
         // Save clients to Supabase
@@ -348,14 +389,8 @@ const Clients = () => {
           // Generate IDs for all imported clients
           const currentYear = new Date().getFullYear();
           const yearPrefix = `CLIENT-${currentYear}-`;
-          
-          // Get the current count of clients for this year
-          const { data: existingData } = await supabase
-            .from('clients')
-            .select('id', { count: 'exact' })
-            .like('id', `${yearPrefix}%`);
-          
-          let nextNumber = (existingData?.length || 0) + 1;
+
+          let nextNumber = await getNextClientSequence();
           
           const clientsWithIds = importedClients.map((client) => ({
             ...client,
@@ -366,7 +401,9 @@ const Clients = () => {
             .from('clients')
             .insert(clientsWithIds);
           
-          if (error) throw error;
+          if (error) {
+            throw new Error(error.message);
+          }
           
           // Fetch updated clients list
           await fetchClients();
@@ -378,7 +415,8 @@ const Clients = () => {
           fileInputRef.current.value = '';
         }
       } catch (error) {
-        alert('Error parsing file. Please ensure the format is correct.');
+        const message = error instanceof Error ? error.message : 'Please ensure the format is correct.';
+        alert(`Import failed: ${message}`);
         console.error(error);
       }
     };

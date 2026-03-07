@@ -351,8 +351,11 @@ const Leads = () => {
     try {
       if (!selectedLead) return;
 
+      const trimmedNotes = followUpNotes.trim();
+      const followUpDateForHistory = new Date().toISOString().split("T")[0];
+
       // Update lead status and next follow-up date
-      const updateData: { status?: LeadStatus; next_follow_up_date?: string | null } = {};
+      const updateData: { status?: LeadStatus; next_follow_up_date?: string | null; remarks?: string } = {};
       
       if (updateStatus) {
         updateData.status = updateStatus as LeadStatus;
@@ -360,6 +363,10 @@ const Leads = () => {
       
       if (nextFollowUpDate) {
         updateData.next_follow_up_date = nextFollowUpDate;
+      }
+
+      if (trimmedNotes) {
+        updateData.remarks = trimmedNotes;
       }
       
       if (Object.keys(updateData).length > 0) {
@@ -371,15 +378,23 @@ const Leads = () => {
         if (updateError) throw updateError;
       }
 
-      // Here you would also save the follow-up notes to a follow_ups table
-      // For now, we'll just update the lead status
-      console.log("Follow-up saved:", {
-        leadId: selectedLead.id,
-        notes: followUpNotes,
-        type: followUpType,
-        date: nextFollowUpDate,
-        status: updateStatus
-      });
+      // Save full follow-up entry to history so it appears in Follow-ups details.
+      const { error: historyError } = await supabase
+        .from("follow_up_history")
+        .insert([
+          {
+            lead_id: selectedLead.id,
+            follow_up_type: followUpType || null,
+            description: trimmedNotes || null,
+            follow_up_by: userName || selectedLead.assignedTo || null,
+            follow_up_date: followUpDateForHistory,
+            next_follow_up: trimmedNotes || null,
+            next_follow_up_date: nextFollowUpDate || null,
+            follow_up_status: "Pending",
+          },
+        ]);
+
+      if (historyError) throw historyError;
 
       // Refresh leads list
       await fetchLeads();

@@ -204,6 +204,28 @@ const Reports = () => {
       .filter((item) => item.value > 0);
   }, [filteredLeads]);
 
+  const salesSummaryRows = useMemo(() => {
+    const metricsByName = new Map(
+      salesPerformanceData.map((item) => [item.name, { leads: item.leads, conversions: item.conversions }])
+    );
+
+    return salesTeamData
+      .filter((person) => selectedPerson === "All Sales Persons" || person.name === selectedPerson)
+      .map((person) => {
+        const metrics = metricsByName.get(person.name) || { leads: 0, conversions: 0 };
+        const conversionRate = metrics.leads > 0
+          ? `${Math.round((metrics.conversions / metrics.leads) * 100)}%`
+          : "0%";
+
+        return {
+          ...person,
+          dynamicLeads: metrics.leads,
+          dynamicConversions: metrics.conversions,
+          dynamicRate: conversionRate,
+        };
+      });
+  }, [salesPerformanceData, salesTeamData, selectedPerson]);
+
   const filteredLeadCount = filteredLeads.length;
 
   const exportRows = useMemo(() => {
@@ -488,7 +510,7 @@ const Reports = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {salesTeamData.map((person) => (
+              {salesSummaryRows.map((person) => (
                 <tr key={person.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -501,9 +523,9 @@ const Reports = () => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-900 font-medium">{person.leads}</td>
-                  <td className="px-4 py-3 text-green-600 font-medium">{person.converted}</td>
-                  <td className="px-4 py-3 text-red-600 font-medium">{person.rate}</td>
+                  <td className="px-4 py-3 text-gray-900 font-medium">{person.dynamicLeads}</td>
+                  <td className="px-4 py-3 text-green-600 font-medium">{person.dynamicConversions}</td>
+                  <td className="px-4 py-3 text-red-600 font-medium">{person.dynamicRate}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${
                       person.status === "Active" 

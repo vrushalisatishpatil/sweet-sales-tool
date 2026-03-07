@@ -61,7 +61,7 @@ const FollowUps = () => {
   const [statusFilter, setStatusFilter] = useState("All");
   const [assigneeFilter, setAssigneeFilter] = useState("All");
   const [completionFilter, setCompletionFilter] = useState<"All" | "Pending" | "In Progress" | "Completed">("All");
-  const [dateFilter, setDateFilter] = useState<"All" | "Today" | "This Week" | "Custom">("Today");
+  const [dateFilter, setDateFilter] = useState<"All" | "Today" | "This Week" | "Custom">("All");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   
@@ -89,7 +89,7 @@ const FollowUps = () => {
   useEffect(() => {
     fetchFollowUps();
     fetchSalesTeam();
-  }, []);
+  }, [userRole, userName]);
 
   const fetchSalesTeam = async () => {
     try {
@@ -121,12 +121,12 @@ const FollowUps = () => {
       
       if (error) throw error;
       
-      // Fetch latest follow-up status for each lead
+      // Fetch latest follow-up entry for each lead to reflect newly saved updates.
       const transformedData: FollowUp[] = await Promise.all((data || []).map(async (lead) => {
         // Get the latest follow-up history entry for this lead
         const { data: historyData } = await supabase
           .from('follow_up_history')
-          .select('follow_up_status')
+          .select('description, follow_up_by, follow_up_date, next_follow_up, next_follow_up_date, follow_up_status')
           .eq('lead_id', lead.id)
           .order('created_at', { ascending: false })
           .limit(1)
@@ -138,13 +138,13 @@ const FollowUps = () => {
           contact: lead.contact || '',
           phone: lead.phone || '',
           method: 'Call', // Default method
-          note: lead.remarks || '',
-          by: lead.assigned_to || '',
-          date: lead.inquiry_date || new Date(lead.created_at).toISOString().split('T')[0],
+          note: historyData?.description || lead.remarks || '',
+          by: historyData?.follow_up_by || lead.assigned_to || '',
+          date: historyData?.follow_up_date || lead.inquiry_date || new Date(lead.created_at).toISOString().split('T')[0],
           status: lead.status || 'New',
           completed: false,
-          nextFollowUpDate: lead.next_follow_up_date || '',
-          nextAction: lead.remarks || '',
+          nextFollowUpDate: historyData?.next_follow_up_date || lead.next_follow_up_date || '',
+          nextAction: historyData?.next_follow_up || lead.remarks || '',
           followUpStatus: historyData?.follow_up_status || 'Pending'
         };
       }));
