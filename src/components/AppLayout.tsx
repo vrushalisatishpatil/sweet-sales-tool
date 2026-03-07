@@ -173,16 +173,13 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       <div className="flex h-screen items-center justify-center bg-gradient-to-br from-red-50 via-white to-orange-50 px-4">
         <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-border bg-white shadow-2xl">
           <div className="grid grid-cols-1 md:grid-cols-2">
-            <div className="hidden md:flex flex-col justify-between bg-red-600 p-8 text-white">
-              <div>
-                <div className="flex items-center justify-center rounded-lg bg-white p-3">
-                  <img src="/Waxity Logo full.png" alt="Waxity Lubricant" className="h-20 w-auto object-contain" />
-                </div>
-                <h1 className="mt-6 text-3xl font-bold tracking-tight font-serif">Waxity Leads</h1>
-                <p className="mt-2 text-sm text-red-100">Lead Management System</p>
-              </div>
-              <div className="text-sm text-red-100">
-                Manage leads, tasks, and follow-ups in one place.
+            <div className="hidden md:flex flex-col items-center justify-center bg-white p-8 text-red-600 text-center">
+              <div className="space-y-2">
+                <img
+                  src="/waxity-login-logo.png"
+                  alt="Waxity Lubricant"
+                  className="mb-2 mx-auto h-56 w-auto object-contain"
+                />
               </div>
             </div>
 
