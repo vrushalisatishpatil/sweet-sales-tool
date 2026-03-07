@@ -61,7 +61,7 @@ const FollowUps = () => {
   const [statusFilter, setStatusFilter] = useState("All");
   const [assigneeFilter, setAssigneeFilter] = useState("All");
   const [completionFilter, setCompletionFilter] = useState<"All" | "Pending" | "In Progress" | "Completed">("All");
-  const [dateFilter, setDateFilter] = useState<"All" | "Today" | "This Week" | "Custom">("All");
+  const [dateFilter, setDateFilter] = useState<"All" | "Today" | "This Week" | "Custom">("Today");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   
