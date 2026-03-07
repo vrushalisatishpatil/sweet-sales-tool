@@ -173,7 +173,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       <div className="flex h-screen items-center justify-center bg-gradient-to-br from-red-50 via-white to-orange-50 px-4">
         <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-border bg-white shadow-2xl">
           <div className="grid grid-cols-1 md:grid-cols-2">
-            <div className="hidden md:flex flex-col items-center justify-center bg-white p-8 text-red-600 text-center">
+            <div className="hidden md:flex flex-col items-center justify-center bg-red-600 p-8 text-red-600 text-center">
               <div className="space-y-2">
                 <img
                   src="/waxity-login-logo.png"
