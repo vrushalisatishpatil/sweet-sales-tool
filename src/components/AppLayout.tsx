@@ -32,10 +32,12 @@ interface AppLayoutProps {
 interface NotificationItem {
   id: string;
   title: string;
-  type: "follow-up" | "task";
+  type: "follow-up" | "task" | "lead";
   isOverdue: boolean;
   path: string;
   date: string;
+  message: string;
+  sortAt: string;
 }
 
 const AppLayout = ({ children }: AppLayoutProps) => {
@@ -108,6 +110,24 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     return parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   };
 
+  const formatNotificationTime = (value: string) => {
+    if (!value) return "";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+    if (isDateOnly) {
+      return formatDueDate(value);
+    }
+    return parsed.toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
   const fetchNotifications = async () => {
     if (userRole === "salesperson" && !userName) {
       setNotifications([]);
@@ -118,6 +138,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       setNotificationsLoading(true);
 
       const today = new Date().toISOString().split("T")[0];
+      const oneDayAgoIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
       let leadsQuery = supabase
         .from("leads")
@@ -136,29 +157,78 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         .order("due_date", { ascending: true })
         .limit(10);
 
+      let recentLeadsQuery = supabase
+        .from("leads")
+        .select("id, company, lead_id, assigned_to, created_at")
+        .gte("created_at", oneDayAgoIso)
+        .order("created_at", { ascending: false })
+        .limit(8);
+
+      let recentLeadUpdatesQuery = supabase
+        .from("leads")
+        .select("id, company, lead_id, assigned_to, status, created_at, updated_at")
+        .gte("updated_at", oneDayAgoIso)
+        .order("updated_at", { ascending: false })
+        .limit(8);
+
+      let recentTasksQuery = supabase
+        .from("tasks")
+        .select("id, title, assigned_to, created_at")
+        .gte("created_at", oneDayAgoIso)
+        .order("created_at", { ascending: false })
+        .limit(8);
+
+      let recentTaskUpdatesQuery = supabase
+        .from("tasks")
+        .select("id, title, assigned_to, status, created_at, updated_at")
+        .gte("updated_at", oneDayAgoIso)
+        .order("updated_at", { ascending: false })
+        .limit(8);
+
       if (userRole === "salesperson" && userName) {
         leadsQuery = leadsQuery.eq("assigned_to", userName);
         tasksQuery = tasksQuery.eq("assigned_to", userName);
+        recentLeadsQuery = recentLeadsQuery.eq("assigned_to", userName);
+        recentLeadUpdatesQuery = recentLeadUpdatesQuery.eq("assigned_to", userName);
+        recentTasksQuery = recentTasksQuery.eq("assigned_to", userName);
+        recentTaskUpdatesQuery = recentTaskUpdatesQuery.eq("assigned_to", userName);
       }
 
-      const [{ data: dueLeads, error: leadsError }, { data: dueTasks, error: tasksError }] = await Promise.all([
+      const [
+        { data: dueLeads, error: leadsError },
+        { data: dueTasks, error: tasksError },
+        { data: recentLeads, error: recentLeadsError },
+        { data: recentLeadUpdates, error: recentLeadUpdatesError },
+        { data: recentTasks, error: recentTasksError },
+        { data: recentTaskUpdates, error: recentTaskUpdatesError },
+      ] = await Promise.all([
         leadsQuery,
         tasksQuery,
+        recentLeadsQuery,
+        recentLeadUpdatesQuery,
+        recentTasksQuery,
+        recentTaskUpdatesQuery,
       ]);
 
       if (leadsError) throw leadsError;
       if (tasksError) throw tasksError;
+      if (recentLeadsError) throw recentLeadsError;
+      if (recentLeadUpdatesError) throw recentLeadUpdatesError;
+      if (recentTasksError) throw recentTasksError;
+      if (recentTaskUpdatesError) throw recentTaskUpdatesError;
 
       const leadNotifications: NotificationItem[] = (dueLeads || []).map((lead: any) => {
         const dueDate = lead.next_follow_up_date || today;
         const isOverdue = dueDate < today;
         return {
-          id: `lead-${lead.id}`,
+          id: `lead-due-${lead.id}-${dueDate}`,
           title: `${lead.company || "Lead"}${lead.lead_id ? ` (${lead.lead_id})` : ""}`,
           type: "follow-up",
           isOverdue,
           path: "/follow-ups",
           date: dueDate,
+          message: `${isOverdue ? "Overdue" : "Due today"} follow-up`,
+          sortAt: dueDate,
         };
       });
 
@@ -166,26 +236,91 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         const dueDate = task.due_date || today;
         const isOverdue = dueDate < today;
         return {
-          id: `task-${task.id}`,
+          id: `task-due-${task.id}-${dueDate}`,
           title: task.title || "Task",
           type: "task",
           isOverdue,
           path: "/assign-tasks",
           date: dueDate,
+          message: `${isOverdue ? "Overdue" : "Due today"} task`,
+          sortAt: dueDate,
         };
       });
 
+      const newLeadNotifications: NotificationItem[] = (recentLeads || []).map((lead: any) => ({
+        id: `lead-new-${lead.id}-${lead.created_at}`,
+        title: `${lead.company || "Lead"}${lead.lead_id ? ` (${lead.lead_id})` : ""}`,
+        type: "lead",
+        isOverdue: false,
+        path: "/leads",
+        date: lead.created_at,
+        message: "New lead added",
+        sortAt: lead.created_at || today,
+      }));
+
+      const updatedLeadNotifications: NotificationItem[] = (recentLeadUpdates || [])
+        .filter((lead: any) => lead.updated_at && lead.created_at && lead.updated_at !== lead.created_at)
+        .map((lead: any) => ({
+          id: `lead-updated-${lead.id}-${lead.updated_at}`,
+          title: `${lead.company || "Lead"}${lead.lead_id ? ` (${lead.lead_id})` : ""}`,
+          type: "lead",
+          isOverdue: false,
+          path: "/leads",
+          date: lead.updated_at,
+          message: `Lead updated${lead.status ? ` • ${lead.status}` : ""}`,
+          sortAt: lead.updated_at || today,
+        }));
+
+      const newTaskNotifications: NotificationItem[] = (recentTasks || []).map((task: any) => ({
+        id: `task-new-${task.id}-${task.created_at}`,
+        title: task.title || "Task",
+        type: "task",
+        isOverdue: false,
+        path: "/assign-tasks",
+        date: task.created_at,
+        message: "New task assigned",
+        sortAt: task.created_at || today,
+      }));
+
+      const updatedTaskNotifications: NotificationItem[] = (recentTaskUpdates || [])
+        .filter((task: any) => task.updated_at && task.created_at && task.updated_at !== task.created_at)
+        .map((task: any) => ({
+          id: `task-updated-${task.id}-${task.updated_at}`,
+          title: task.title || "Task",
+          type: "task",
+          isOverdue: false,
+          path: "/assign-tasks",
+          date: task.updated_at,
+          message: `Task updated${task.status ? ` • ${task.status}` : ""}`,
+          sortAt: task.updated_at || today,
+        }));
+
       const unique = new Map<string, NotificationItem>();
-      [...leadNotifications, ...taskNotifications].forEach((item) => {
+      [
+        ...leadNotifications,
+        ...taskNotifications,
+        ...newLeadNotifications,
+        ...updatedLeadNotifications,
+        ...newTaskNotifications,
+        ...updatedTaskNotifications,
+      ].forEach((item) => {
         unique.set(item.id, item);
       });
 
       const merged = Array.from(unique.values())
         .sort((a, b) => {
-          if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1;
-          return a.date.localeCompare(b.date);
+          const getPriority = (item: NotificationItem) => {
+            if (item.type === "follow-up" || (item.type === "task" && item.message.includes("task") && (item.message.includes("Due today") || item.message.includes("Overdue")))) {
+              return item.isOverdue ? 0 : 1;
+            }
+            return 2;
+          };
+
+          const priorityDiff = getPriority(a) - getPriority(b);
+          if (priorityDiff !== 0) return priorityDiff;
+          return b.sortAt.localeCompare(a.sortAt);
         })
-        .slice(0, 12);
+        .slice(0, 20);
 
       setNotifications(merged);
       setSeenNotificationIds((prev) => prev.filter((id) => merged.some((item) => item.id === id)));
@@ -592,12 +727,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                             className="flex w-full items-start gap-3 border-b border-border px-3 py-2.5 text-left hover:bg-accent/60 last:border-b-0"
                           >
                             <span className={`mt-0.5 rounded-md p-1.5 ${item.isOverdue ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
-                              {item.type === "follow-up" ? <CircleAlert className="h-4 w-4" /> : <ClipboardCheck className="h-4 w-4" />}
+                              {item.type === "follow-up" || item.type === "lead" ? <CircleAlert className="h-4 w-4" /> : <ClipboardCheck className="h-4 w-4" />}
                             </span>
                             <span className="min-w-0 flex-1">
                               <span className="mb-0.5 block text-sm font-medium text-foreground truncate">{item.title}</span>
                               <span className="block text-xs text-muted-foreground">
-                                {item.isOverdue ? "Overdue" : "Due today"} {item.type === "follow-up" ? "follow-up" : "task"} • {formatDueDate(item.date)}
+                                {item.message} • {formatNotificationTime(item.date)}
                               </span>
                             </span>
                           </button>
