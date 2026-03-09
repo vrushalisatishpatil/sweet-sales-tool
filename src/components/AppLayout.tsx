@@ -54,6 +54,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   }, [location.search]);
 
   useEffect(() => {
+    if (userRole !== "admin" && location.pathname === "/sales-team") {
+      navigate("/leads", { replace: true });
+    }
+  }, [userRole, location.pathname, navigate]);
+
+  useEffect(() => {
     const storedEmail = localStorage.getItem("salesperson_email");
     if (storedEmail) {
       setLocalSessionEmail(storedEmail);

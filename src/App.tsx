@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "@/components/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import Leads from "@/pages/Leads";
@@ -13,8 +13,19 @@ import SalesTeam from "@/pages/SalesTeam";
 import Reports from "@/pages/Reports";
 import Clients from "@/pages/Clients";
 import NotFound from "./pages/NotFound";
+import { useUser } from "@/context/UserContext";
 
 const queryClient = new QueryClient();
+
+const AdminOnlyRoute = ({ children }: { children: JSX.Element }) => {
+  const { userRole } = useUser();
+
+  if (userRole !== "admin") {
+    return <Navigate to="/leads" replace />;
+  }
+
+  return children;
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -29,7 +40,7 @@ const App = () => (
             <Route path="/follow-ups" element={<FollowUps />} />
             <Route path="/assign-tasks" element={<AssignTasks />} />
             <Route path="/add-notes" element={<AddNotes />} />
-            <Route path="/sales-team" element={<SalesTeam />} />
+            <Route path="/sales-team" element={<AdminOnlyRoute><SalesTeam /></AdminOnlyRoute>} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/clients" element={<Clients />} />
             <Route path="*" element={<NotFound />} />

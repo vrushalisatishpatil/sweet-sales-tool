@@ -58,6 +58,22 @@ const toTitleCase = (value: string) => {
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
 };
 
+const hasMeaningfulLeadData = (lead: Lead) => {
+  return [
+    lead.company,
+    lead.contact,
+    lead.phone,
+    lead.email,
+    lead.city,
+    lead.state,
+    lead.country,
+    lead.source,
+    lead.assignedTo,
+    lead.productInterested,
+    lead.remarks,
+  ].some((value) => value?.trim());
+};
+
 const getUniqueSortedValues = (values: string[]) => {
   return Array.from(new Set(values.map((value) => {
     const trimmed = value.trim();
@@ -193,7 +209,7 @@ const Leads = () => {
         createdAt: new Date(dbLead.created_at).toISOString().split('T')[0],
       }));
 
-      setLeadsData(transformedLeads);
+      setLeadsData(transformedLeads.filter(hasMeaningfulLeadData));
     } catch (err) {
       console.error('Error fetching leads:', err);
       setError('Failed to load leads. Please try again.');
@@ -662,8 +678,69 @@ const Leads = () => {
             nextLeadNumber = lastNumber + 1;
           }
 
+          // Skip blank template rows so they don't create empty leads.
+          const rowsWithData = jsonData.filter((row) => {
+            const textFields = [
+              row['Company Name'],
+              row['Company'],
+              row['company'],
+              row['Organization'],
+              row['Contact Person'],
+              row['Contact'],
+              row['contact'],
+              row['contactPerson'],
+              row['Contact Number'],
+              row['Phone'],
+              row['phone'],
+              row['Mobile'],
+              row['mobile'],
+              row['Email'],
+              row['email'],
+              row['Email ID'],
+              row['emailId'],
+              row['City'],
+              row['city'],
+              row['State'],
+              row['state'],
+              row['Country'],
+              row['country'],
+              row['Inquiry Source'],
+              row['Source'],
+              row['source'],
+              row['inquirySource'],
+              row['Product Interested'],
+              row['productInterested'],
+              row['product_interested'],
+              row['Assigned To'],
+              row['assignedTo'],
+              row['assigned_to'],
+              row['Assign Sales Person'],
+              row['Initial Remarks'],
+              row['Remarks'],
+              row['remarks'],
+              row['initialRemarks'],
+              row['Inquiry Date'],
+              row['inquiryDate'],
+              row['inquiry_date'],
+              row['Next Follow-up Date'],
+              row['nextFollowUpDate'],
+              row['next_follow_up_date'],
+            ];
+
+            const hasTextData = textFields.some((value) => String(value ?? '').trim() !== '');
+            const hasValue = Number(row['Value'] || row['value'] || 0) > 0;
+
+            return hasTextData || hasValue;
+          });
+
+          if (rowsWithData.length === 0) {
+            setError('No valid lead rows found. Please remove blank rows and try again.');
+            setLoading(false);
+            return;
+          }
+
           // Map imported data to Supabase schema
-          const leadsToInsert = jsonData.map((row, index) => {
+          const leadsToInsert = rowsWithData.map((row, index) => {
             const leadId = `${prefix}${(nextLeadNumber + index).toString().padStart(4, '0')}`;
 
             return {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { Mail, Phone, Plus, Search, CheckCircle2, Loader2, AlertCircle, Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -324,6 +324,10 @@ const SalesTeam = () => {
     ]);
     return matchesSearch;
   });
+
+  if (userRole !== 'admin') {
+    return <Navigate to="/leads" replace />;
+  }
 
   if (isLoading) {
     return (
