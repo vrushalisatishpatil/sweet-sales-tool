@@ -605,10 +605,10 @@ const Leads = () => {
       reader.onload = async (e) => {
         try {
           const data = e.target?.result;
-          const workbook = XLSX.read(data, { type: 'binary' });
+          const workbook = XLSX.read(data, { type: 'binary', cellDates: true });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false, dateNF: 'yyyy-mm-dd' }) as any[];
 
           if (jsonData.length === 0) {
             setError('The file is empty. Please check your file.');
@@ -616,44 +616,90 @@ const Leads = () => {
             return;
           }
 
+          const padDatePart = (part: number) => String(part).padStart(2, '0');
+
+          const formatLocalDate = (date: Date) => {
+            if (Number.isNaN(date.getTime())) return null;
+            return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`;
+          };
+
+          const getTodayLocalISO = () => {
+            const now = new Date();
+            return `${now.getFullYear()}-${padDatePart(now.getMonth() + 1)}-${padDatePart(now.getDate())}`;
+          };
+
           const normalizeDate = (value: unknown) => {
             // Handle Date objects
             if (value instanceof Date && !isNaN(value.getTime())) {
-              return value.toISOString().split('T')[0];
+              return formatLocalDate(value);
             }
 
             // Handle numeric values (Excel serial numbers)
-            if (typeof value === 'number' || (typeof value === 'string' && value.trim() !== '' && !isNaN(Number(value)))) {
-              const numeric = typeof value === 'number' ? value : Number(value);
-              
-              // Try XLSX parser first
+            if (typeof value === 'number') {
+              // Use XLSX built-in parser for Excel dates
               try {
-                const parsed = XLSX.SSF.parse_date_code(numeric);
+                const parsed = XLSX.SSF.parse_date_code(value);
                 if (parsed && typeof parsed === 'object' && parsed.y && parsed.m && parsed.d) {
-                  const date = new Date(parsed.y, parsed.m - 1, parsed.d);
-                  if (!isNaN(date.getTime())) {
-                    return date.toISOString().split('T')[0];
-                  }
+                  return `${parsed.y}-${padDatePart(parsed.m)}-${padDatePart(parsed.d)}`;
                 }
               } catch (e) {
                 // Fall through to manual calculation
               }
               
               // Manual Excel serial number conversion
-              // Excel epoch is 1900-01-01
-              const excelEpoch = new Date(1900, 0, 1);
+              // Excel uses 1900-01-01 as day 1, but has a leap year bug
+              // For dates >= 60 (March 1, 1900), we need to account for the bug
+              const adjustedValue = value > 59 ? value - 1 : value;
+              const excelEpoch = new Date(Date.UTC(1899, 11, 31)); // Dec 31, 1899
               const millisecondsPerDay = 24 * 60 * 60 * 1000;
-              const date = new Date(excelEpoch.getTime() + (numeric - 1) * millisecondsPerDay);
+              const date = new Date(excelEpoch.getTime() + adjustedValue * millisecondsPerDay);
               if (!isNaN(date.getTime())) {
-                return date.toISOString().split('T')[0];
+                return `${date.getUTCFullYear()}-${padDatePart(date.getUTCMonth() + 1)}-${padDatePart(date.getUTCDate())}`;
               }
             }
 
-            // Handle string dates
+            // Handle string dates - try multiple formats
             if (typeof value === 'string' && value.trim() !== '') {
-              const parsed = new Date(value);
+              const trimmed = value.trim();
+              
+              // Try ISO format (YYYY-MM-DD)
+              if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                const parsed = new Date(trimmed);
+                if (!isNaN(parsed.getTime())) {
+                  return trimmed; // Already in correct format
+                }
+              }
+              
+              // Try DD-MM-YYYY or DD/MM/YYYY format
+              const ddmmyyyyMatch = trimmed.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+              if (ddmmyyyyMatch) {
+                const day = ddmmyyyyMatch[1].padStart(2, '0');
+                const month = ddmmyyyyMatch[2].padStart(2, '0');
+                const year = ddmmyyyyMatch[3];
+                const isoDate = `${year}-${month}-${day}`;
+                const parsed = new Date(isoDate);
+                if (!isNaN(parsed.getTime())) {
+                  return isoDate;
+                }
+              }
+              
+              // Try MM-DD-YYYY or MM/DD/YYYY format
+              const mmddyyyyMatch = trimmed.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+              if (mmddyyyyMatch) {
+                const month = mmddyyyyMatch[1].padStart(2, '0');
+                const day = mmddyyyyMatch[2].padStart(2, '0');
+                const year = mmddyyyyMatch[3];
+                const isoDate = `${year}-${month}-${day}`;
+                const parsed = new Date(isoDate);
+                if (!isNaN(parsed.getTime())) {
+                  return isoDate;
+                }
+              }
+              
+              // Try general date parsing as fallback
+              const parsed = new Date(trimmed);
               if (!isNaN(parsed.getTime())) {
-                return parsed.toISOString().split('T')[0];
+                return formatLocalDate(parsed);
               }
             }
 
@@ -720,8 +766,12 @@ const Leads = () => {
               row['remarks'],
               row['initialRemarks'],
               row['Inquiry Date'],
+              row['Date'],
+              row['DATE'],
               row['inquiryDate'],
               row['inquiry_date'],
+              row['date'],
+              row['Inquiry date'],
               row['Next Follow-up Date'],
               row['nextFollowUpDate'],
               row['next_follow_up_date'],
@@ -743,6 +793,9 @@ const Leads = () => {
           const leadsToInsert = rowsWithData.map((row, index) => {
             const leadId = `${prefix}${(nextLeadNumber + index).toString().padStart(4, '0')}`;
 
+            // Extract date value - check all possible column names
+            const dateValue = row['Inquiry Date'] || row['Date'] || row['inquiryDate'] || row['inquiry_date'] || row['date'] || row['DATE'] || row['Inquiry date'];
+
             return {
               lead_id: leadId,
               company: row['Company Name'] || row['Company'] || row['company'] || row['Organization'] || '',
@@ -758,7 +811,7 @@ const Leads = () => {
               status: (row['Status'] || row['status'] || 'New') as LeadStatus,
               value: Number(row['Value'] || row['value'] || 0) || 0,
               remarks: row['Initial Remarks'] || row['Remarks'] || row['remarks'] || row['initialRemarks'] || '',
-              inquiry_date: normalizeDate(row['Inquiry Date'] || row['inquiryDate'] || row['inquiry_date']) || new Date().toISOString().split('T')[0],
+              inquiry_date: normalizeDate(dateValue) || getTodayLocalISO(),
               next_follow_up_date: (row['Next Follow-up Date'] || row['nextFollowUpDate'] || row['next_follow_up_date']) ? normalizeDate(row['Next Follow-up Date'] || row['nextFollowUpDate'] || row['next_follow_up_date']) : null,
             };
           });
