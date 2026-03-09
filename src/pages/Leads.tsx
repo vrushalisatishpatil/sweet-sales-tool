@@ -52,8 +52,19 @@ const getStatusColor = (status: LeadStatus) => {
   return colors[status] || "bg-gray-100 text-gray-700";
 };
 
+const toTitleCase = (value: string) => {
+  if (!value) return value;
+  const trimmed = value.trim();
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+};
+
 const getUniqueSortedValues = (values: string[]) => {
-  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  return Array.from(new Set(values.map((value) => {
+    const trimmed = value.trim();
+    if (!trimmed) return trimmed;
+    // Convert to title case: first letter uppercase, rest lowercase
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+  }).filter(Boolean))).sort((a, b) => a.localeCompare(b));
 };
 
 const Leads = () => {
@@ -891,7 +902,7 @@ const Leads = () => {
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">DATE</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">COMPANY</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">CONTACT PERSON / NO.</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">INQUIRY SOURCE</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">CITY</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">STATE</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">COUNTRY</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">ASSIGNED TO</th>
@@ -911,9 +922,9 @@ const Leads = () => {
                     <p className="text-sm text-foreground">{lead.contact}</p>
                     <p className="text-xs text-muted-foreground">{lead.phone}</p>
                   </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{lead.source}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{lead.state}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{lead.country}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{toTitleCase(lead.city)}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{toTitleCase(lead.state)}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{toTitleCase(lead.country)}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{lead.assignedTo}</td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(lead.status)}`}>
@@ -1019,19 +1030,19 @@ const Leads = () => {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">City</p>
-                    <p className="text-sm font-medium text-foreground">{selectedLead.city}</p>
+                    <p className="text-sm font-medium text-foreground">{toTitleCase(selectedLead.city)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">State</p>
-                    <p className="text-sm font-medium text-foreground">{selectedLead.state}</p>
+                    <p className="text-sm font-medium text-foreground">{toTitleCase(selectedLead.state)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Country</p>
-                    <p className="text-sm font-medium text-foreground">{selectedLead.country}</p>
+                    <p className="text-sm font-medium text-foreground">{toTitleCase(selectedLead.country)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Source</p>
-                    <p className="text-sm font-medium text-foreground">{selectedLead.source}</p>
+                    <p className="text-sm font-medium text-foreground">{toTitleCase(selectedLead.source)}</p>
                   </div>
                   <div className="col-span-2">
                     <p className="text-xs text-muted-foreground">Assigned To</p>
