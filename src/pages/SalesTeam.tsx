@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
-import { Mail, Phone, Plus, Search, CheckCircle2, Loader2, AlertCircle, Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
+import { Mail, Phone, Plus, Search, CheckCircle2, Loader2, AlertCircle, Eye, EyeOff, Pencil, Trash2, Lock, Unlock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -264,6 +264,30 @@ const SalesTeam = () => {
     }
   };
 
+  const handleToggleSalesPersonStatus = async (person: SalesPerson) => {
+    const newStatus = person.status === "Active" ? "Inactive" : "Active";
+    const action = newStatus === "Active" ? "activate" : "deactivate";
+    
+    if (!confirm(`Are you sure you want to ${action} ${person.name}?`)) {
+      return;
+    }
+
+    try {
+      setError(null);
+      const { error: updateError } = await supabase
+        .from('sales_team')
+        .update({ status: newStatus })
+        .eq('id', person.id);
+
+      if (updateError) throw updateError;
+
+      await fetchSalesTeam();
+    } catch (err) {
+      console.error('Error updating sales person status:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update sales person status');
+    }
+  };
+
   const handleCreateSalesPerson = async () => {
     // Validate input
     if (!newPerson.name.trim() || !newPerson.email.trim() || !newPerson.phone.trim() || !newPerson.password.trim()) {
@@ -476,6 +500,21 @@ const SalesTeam = () => {
                         title="Edit"
                       >
                         <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleToggleSalesPersonStatus(person)}
+                        className={`p-1 rounded hover:bg-gray-100 text-gray-600 transition-colors ${
+                          person.status === "Active" 
+                            ? "hover:text-orange-600" 
+                            : "hover:text-green-600"
+                        }`}
+                        title={person.status === "Active" ? "Deactivate" : "Activate"}
+                      >
+                        {person.status === "Active" ? (
+                          <Lock className="h-4 w-4" />
+                        ) : (
+                          <Unlock className="h-4 w-4" />
+                        )}
                       </button>
                       <button
                         onClick={() => handleDeleteSalesPerson(person)}

@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, PhoneCall, ClipboardList, StickyNote, UserCheck, BarChart3, Building2, ChevronLeft, Search, Bell, LogOut, Eye, EyeOff } from "lucide-react";
-import { useEffect, useState } from "react";
+import { LayoutDashboard, Users, PhoneCall, ClipboardList, StickyNote, UserCheck, BarChart3, Building2, ChevronLeft, Search, Bell, LogOut, Eye, EyeOff, CircleAlert, ClipboardCheck } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "./ui/button";
 import { UserContext } from "@/context/UserContext";
 import { supabase } from "@/lib/supabase";
@@ -29,9 +29,22 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
+interface NotificationItem {
+  id: string;
+  title: string;
+  type: "follow-up" | "task";
+  isOverdue: boolean;
+  path: string;
+  date: string;
+}
+
 const AppLayout = ({ children }: AppLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const notificationButtonRef = useRef<HTMLButtonElement>(null);
+  const profileButtonRef = useRef<HTMLButtonElement>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [globalSearch, setGlobalSearch] = useState("");
   const searchableRoutes = ["/leads", "/follow-ups", "/assign-tasks", "/add-notes", "/sales-team", "/clients"];
@@ -41,6 +54,10 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const [userName, setUserName] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [seenNotificationIds, setSeenNotificationIds] = useState<string[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [loginEmail, setLoginEmail] = useState("");
@@ -58,6 +75,127 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       navigate("/leads", { replace: true });
     }
   }, [userRole, location.pathname, navigate]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      
+      // Close notifications if clicking outside
+      if (showNotifications && notificationsRef.current && notificationButtonRef.current) {
+        if (!notificationsRef.current.contains(target) && !notificationButtonRef.current.contains(target)) {
+          setShowNotifications(false);
+        }
+      }
+      
+      // Close profile menu if clicking outside
+      if (showProfileMenu && profileMenuRef.current && profileButtonRef.current) {
+        if (!profileMenuRef.current.contains(target) && !profileButtonRef.current.contains(target)) {
+          setShowProfileMenu(false);
+        }
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showNotifications, showProfileMenu]);
+
+  const unreadCount = notifications.filter((item) => !seenNotificationIds.includes(item.id)).length;
+
+  const formatDueDate = (value: string) => {
+    if (!value) return "";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  const fetchNotifications = async () => {
+    if (userRole === "salesperson" && !userName) {
+      setNotifications([]);
+      return;
+    }
+
+    try {
+      setNotificationsLoading(true);
+
+      const today = new Date().toISOString().split("T")[0];
+
+      let leadsQuery = supabase
+        .from("leads")
+        .select("id, company, lead_id, next_follow_up_date, assigned_to")
+        .not("next_follow_up_date", "is", null)
+        .lte("next_follow_up_date", today)
+        .order("next_follow_up_date", { ascending: true })
+        .limit(10);
+
+      let tasksQuery = supabase
+        .from("tasks")
+        .select("id, title, due_date, status, assigned_to")
+        .not("due_date", "is", null)
+        .neq("status", "Completed")
+        .lte("due_date", today)
+        .order("due_date", { ascending: true })
+        .limit(10);
+
+      if (userRole === "salesperson" && userName) {
+        leadsQuery = leadsQuery.eq("assigned_to", userName);
+        tasksQuery = tasksQuery.eq("assigned_to", userName);
+      }
+
+      const [{ data: dueLeads, error: leadsError }, { data: dueTasks, error: tasksError }] = await Promise.all([
+        leadsQuery,
+        tasksQuery,
+      ]);
+
+      if (leadsError) throw leadsError;
+      if (tasksError) throw tasksError;
+
+      const leadNotifications: NotificationItem[] = (dueLeads || []).map((lead: any) => {
+        const dueDate = lead.next_follow_up_date || today;
+        const isOverdue = dueDate < today;
+        return {
+          id: `lead-${lead.id}`,
+          title: `${lead.company || "Lead"}${lead.lead_id ? ` (${lead.lead_id})` : ""}`,
+          type: "follow-up",
+          isOverdue,
+          path: "/follow-ups",
+          date: dueDate,
+        };
+      });
+
+      const taskNotifications: NotificationItem[] = (dueTasks || []).map((task: any) => {
+        const dueDate = task.due_date || today;
+        const isOverdue = dueDate < today;
+        return {
+          id: `task-${task.id}`,
+          title: task.title || "Task",
+          type: "task",
+          isOverdue,
+          path: "/assign-tasks",
+          date: dueDate,
+        };
+      });
+
+      const unique = new Map<string, NotificationItem>();
+      [...leadNotifications, ...taskNotifications].forEach((item) => {
+        unique.set(item.id, item);
+      });
+
+      const merged = Array.from(unique.values())
+        .sort((a, b) => {
+          if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1;
+          return a.date.localeCompare(b.date);
+        })
+        .slice(0, 12);
+
+      setNotifications(merged);
+      setSeenNotificationIds((prev) => prev.filter((id) => merged.some((item) => item.id === id)));
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+      setNotifications([]);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const storedEmail = localStorage.getItem("salesperson_email");
@@ -116,6 +254,39 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     };
   }, [localSessionEmail, adminEmail]);
 
+  useEffect(() => {
+    if (!session && !localSessionEmail) {
+      setNotifications([]);
+      setSeenNotificationIds([]);
+      return;
+    }
+
+    void fetchNotifications();
+    const interval = setInterval(() => {
+      void fetchNotifications();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [session, localSessionEmail, userRole, userName]);
+
+  useEffect(() => {
+    if (!session && !localSessionEmail) return;
+
+    const channel = supabase
+      .channel(`header-notifications-${userRole}-${userName || "all"}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => {
+        void fetchNotifications();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
+        void fetchNotifications();
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [session, localSessionEmail, userRole, userName]);
+
   const handleSignOut = async () => {
     if (localSessionEmail) {
       localStorage.removeItem("salesperson_email");
@@ -129,6 +300,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       setUserEmail(null);
     }
     setShowProfileMenu(false);
+    setShowNotifications(false);
+    setNotifications([]);
+    setSeenNotificationIds([]);
   };
 
   const handleLogin = async () => {
@@ -144,13 +318,18 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     if (loginRole === "salesperson") {
       const { data, error: lookupError } = await supabase
         .from("sales_team")
-        .select("email, name")
+        .select("email, name, status")
         .eq("email", trimmedLogin)
         .eq("password", trimmedPassword)
         .maybeSingle();
 
       if (lookupError || !data?.email) {
         setAuthError("Invalid email or password.");
+        return;
+      }
+
+      if (data.status === "Inactive") {
+        setAuthError("Your account has been deactivated. Please contact your administrator.");
         return;
       }
 
@@ -369,20 +548,79 @@ const AppLayout = ({ children }: AppLayoutProps) => {
               />
             </div>
             <div className="flex items-center gap-3">
-              <button className="relative rounded-lg p-2 hover:bg-accent">
-                <Bell className="h-5 w-5 text-muted-foreground" />
-                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />
-              </button>
               <div className="relative">
                 <button
-                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  ref={notificationButtonRef}
+                  onClick={() => {
+                    const nextOpen = !showNotifications;
+                    setShowNotifications(nextOpen);
+                    setShowProfileMenu(false);
+                    if (nextOpen) {
+                      setSeenNotificationIds((prev) => Array.from(new Set([...prev, ...notifications.map((item) => item.id)])));
+                      void fetchNotifications();
+                    }
+                  }}
+                  className="relative rounded-lg p-2 hover:bg-accent"
+                  title="Notifications"
+                >
+                  <Bell className="h-5 w-5 text-muted-foreground" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </button>
+                {showNotifications && (
+                  <div ref={notificationsRef} className="absolute right-0 top-10 z-50 w-96 overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-xl">
+                    <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                      <span className="text-sm font-semibold">Notifications</span>
+                      <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-muted-foreground">{notifications.length}</span>
+                    </div>
+                    <div className="max-h-80 overflow-auto">
+                      {notificationsLoading ? (
+                        <div className="px-3 py-4 text-sm text-muted-foreground">Loading notifications...</div>
+                      ) : notifications.length === 0 ? (
+                        <div className="px-3 py-4 text-sm text-muted-foreground">No new notifications.</div>
+                      ) : (
+                        notifications.map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              setShowNotifications(false);
+                              navigate(item.path);
+                            }}
+                            className="flex w-full items-start gap-3 border-b border-border px-3 py-2.5 text-left hover:bg-accent/60 last:border-b-0"
+                          >
+                            <span className={`mt-0.5 rounded-md p-1.5 ${item.isOverdue ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
+                              {item.type === "follow-up" ? <CircleAlert className="h-4 w-4" /> : <ClipboardCheck className="h-4 w-4" />}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="mb-0.5 block text-sm font-medium text-foreground truncate">{item.title}</span>
+                              <span className="block text-xs text-muted-foreground">
+                                {item.isOverdue ? "Overdue" : "Due today"} {item.type === "follow-up" ? "follow-up" : "task"} • {formatDueDate(item.date)}
+                              </span>
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="relative">
+                <button
+                  ref={profileButtonRef}
+                  onClick={() => {
+                    setShowProfileMenu(!showProfileMenu);
+                    setShowNotifications(false);
+                  }}
                   className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-colors"
                   title="Profile menu"
                 >
                   WL
                 </button>
                 {showProfileMenu && (
-                  <div className="absolute right-0 top-10 w-40 rounded-lg border border-border bg-card shadow-lg z-50">
+                  <div ref={profileMenuRef} className="absolute right-0 top-10 w-40 rounded-lg border border-border bg-card shadow-lg z-50">
                     <button
                       onClick={handleSignOut}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-accent rounded-lg transition-colors"
