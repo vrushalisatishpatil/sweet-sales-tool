@@ -10,6 +10,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { supabase } from "@/lib/supabase";
 import { useUser } from "@/context/UserContext";
 import { formatDateDDMMYYYY } from "@/lib/utils";
+import { useSearchParams } from "react-router-dom";
+import { matchesDynamicSearch } from "@/lib/search";
 
 type TodoStatus = "Pending" | "In Progress" | "Completed";
 
@@ -30,6 +32,7 @@ const AddNotes = () => {
   const [ownerIdentifier, setOwnerIdentifier] = useState<string | null>(null);
   const [creatorLabel, setCreatorLabel] = useState<string>("Admin");
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchParams] = useSearchParams();
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [isAddNoteDialogOpen, setIsAddNoteDialogOpen] = useState(false);
   const [selectedNote, setSelectedNote] = useState<TodoItem | null>(null);
@@ -50,6 +53,10 @@ const AddNotes = () => {
       fetchTodos(ownerIdentifier);
     }
   }, [ownerIdentifier]);
+
+  useEffect(() => {
+    setSearchQuery(searchParams.get("q") || "");
+  }, [searchParams]);
 
   const initializeUserContext = async () => {
     if (userRole === "admin") {
@@ -244,10 +251,14 @@ const AddNotes = () => {
 
   // Filter notes
   const filteredNotes = notesData.filter((note) => {
-    const matchesSearch = 
-      note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      note.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      note.company.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = matchesDynamicSearch(searchQuery, [
+      note.title,
+      note.content,
+      note.company,
+      note.createdBy,
+      note.createdAt,
+      note.category,
+    ]);
     const matchesCategory = categoryFilter === "All" || note.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });

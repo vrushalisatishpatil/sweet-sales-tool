@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { formatDateDDMMYYYY, convertDDMMYYYYtoISO, convertISOtoDDMMYYYY } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/date-picker";
+import { useSearchParams } from "react-router-dom";
+import { matchesDynamicSearch } from "@/lib/search";
 
 interface Lead {
   id: string;
@@ -61,11 +63,12 @@ const Leads = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [searchParams] = useSearchParams();
   const [filterStatus, setFilterStatus] = useState<string>("All");
   const [filterAssignedTo, setFilterAssignedTo] = useState<string>("All");
   const [filterDateFrom, setFilterDateFrom] = useState<string>("");
   const [filterDateTo, setFilterDateTo] = useState<string>("");
-  const [filterCity, setFilterCity] = useState<string>("All");
+  const [filterSource, setFilterSource] = useState<string>("All");
   const [filterState, setFilterState] = useState<string>("All");
   const [filterCountry, setFilterCountry] = useState<string>("All");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -114,6 +117,10 @@ const Leads = () => {
     fetchLeads();
     fetchSalesPersons();
   }, []);
+
+  useEffect(() => {
+    setSearch(searchParams.get("q") || "");
+  }, [searchParams]);
 
   const fetchSalesPersons = async () => {
     try {
@@ -213,15 +220,32 @@ const Leads = () => {
     return `${prefix}0001`;
   };
 
-  const cityOptions = getUniqueSortedValues(leadsData.map((lead) => lead.city));
+  const sourceOptions = getUniqueSortedValues(leadsData.map((lead) => lead.source));
   const stateOptions = getUniqueSortedValues(leadsData.map((lead) => lead.state));
   const countryOptions = getUniqueSortedValues(leadsData.map((lead) => lead.country));
 
   const filtered = leadsData.filter((l) => {
-    const matchSearch = l.company.toLowerCase().includes(search.toLowerCase()) || l.contact.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = matchesDynamicSearch(search, [
+      l.company,
+      l.contact,
+      l.phone,
+      l.email,
+      l.city,
+      l.state,
+      l.country,
+      l.source,
+      l.productInterested,
+      l.assignedTo,
+      l.status,
+      l.remarks,
+      l.leadId,
+      l.inquiryDate,
+      l.nextFollowUpDate,
+      l.value,
+    ]);
     const matchStatus = filterStatus === "All" || l.status === filterStatus;
     const matchAssignedTo = filterAssignedTo === "All" || l.assignedTo === filterAssignedTo;
-    const matchCity = filterCity === "All" || l.city === filterCity;
+    const matchSource = filterSource === "All" || l.source === filterSource;
     const matchState = filterState === "All" || l.state === filterState;
     const matchCountry = filterCountry === "All" || l.country === filterCountry;
 
@@ -238,16 +262,16 @@ const Leads = () => {
       }
     }
 
-    return matchSearch && matchStatus && matchAssignedTo && matchCity && matchState && matchCountry && matchDateRange;
+    return matchSearch && matchStatus && matchAssignedTo && matchSource && matchState && matchCountry && matchDateRange;
   });
 
-  const hasAdvancedFilters = filterAssignedTo !== "All" || filterDateFrom || filterDateTo || filterCity !== "All" || filterState !== "All" || filterCountry !== "All";
+  const hasAdvancedFilters = filterAssignedTo !== "All" || filterDateFrom || filterDateTo || filterSource !== "All" || filterState !== "All" || filterCountry !== "All";
 
   const clearAdvancedFilters = () => {
     setFilterAssignedTo("All");
     setFilterDateFrom("");
     setFilterDateTo("");
-    setFilterCity("All");
+    setFilterSource("All");
     setFilterState("All");
     setFilterCountry("All");
   };
@@ -793,14 +817,14 @@ const Leads = () => {
               className="h-9 w-[150px]"
             />
 
-            <Select value={filterCity} onValueChange={setFilterCity}>
-              <SelectTrigger className="h-9 w-[140px]">
-                <SelectValue placeholder="City" />
+            <Select value={filterSource} onValueChange={setFilterSource}>
+              <SelectTrigger className="h-9 w-[160px]">
+                <SelectValue placeholder="Inquiry Source" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="All">All Cities</SelectItem>
-                {cityOptions.map((city) => (
-                  <SelectItem key={city} value={city}>{city}</SelectItem>
+                <SelectItem value="All">All Sources</SelectItem>
+                {sourceOptions.map((source) => (
+                  <SelectItem key={source} value={source}>{source}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -867,7 +891,7 @@ const Leads = () => {
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">DATE</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">COMPANY</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">CONTACT PERSON / NO.</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">CITY</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">INQUIRY SOURCE</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">STATE</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">COUNTRY</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">ASSIGNED TO</th>
@@ -887,7 +911,7 @@ const Leads = () => {
                     <p className="text-sm text-foreground">{lead.contact}</p>
                     <p className="text-xs text-muted-foreground">{lead.phone}</p>
                   </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{lead.city}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{lead.source}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{lead.state}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{lead.country}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{lead.assignedTo}</td>
@@ -1468,3 +1492,7 @@ const Leads = () => {
 };
 
 export default Leads;
+
+
+
+

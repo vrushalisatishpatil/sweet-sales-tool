@@ -4,6 +4,8 @@ import { supabase } from "@/lib/supabase";
 import { formatDateDDMMYYYY, convertDDMMYYYYtoISO, convertISOtoDDMMYYYY } from "@/lib/utils";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
+import { useSearchParams } from "react-router-dom";
+import { matchesDynamicSearch } from "@/lib/search";
 
 interface FollowUp {
   id: string;
@@ -58,6 +60,7 @@ const FollowUps = () => {
     | "Lost"
   >("New");
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchParams] = useSearchParams();
   const [statusFilter, setStatusFilter] = useState("All");
   const [assigneeFilter, setAssigneeFilter] = useState("All");
   const [completionFilter, setCompletionFilter] = useState<"All" | "Pending" | "In Progress" | "Completed">("All");
@@ -90,6 +93,10 @@ const FollowUps = () => {
     fetchFollowUps();
     fetchSalesTeam();
   }, [userRole, userName]);
+
+  useEffect(() => {
+    setSearchQuery(searchParams.get("q") || "");
+  }, [searchParams]);
 
   const fetchSalesTeam = async () => {
     try {
@@ -238,19 +245,19 @@ const FollowUps = () => {
     if (statusFilter !== "All" && item.status !== statusFilter) return false;
     if (assigneeFilter !== "All" && item.by !== assigneeFilter) return false;
 
-    if (searchQuery.trim()) {
-      const query = searchQuery.trim().toLowerCase();
-      const matchTarget = [
-        item.company,
-        item.note,
-        item.phone,
-        item.by,
-        item.nextAction,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      if (!matchTarget.includes(query)) return false;
+    if (!matchesDynamicSearch(searchQuery, [
+      item.company,
+      item.contact,
+      item.note,
+      item.phone,
+      item.by,
+      item.nextAction,
+      item.status,
+      item.followUpStatus,
+      item.date,
+      item.nextFollowUpDate,
+    ])) {
+      return false;
     }
 
     if (dateFilter !== "All") {
@@ -781,3 +788,8 @@ const FollowUps = () => {
 };
 
 export default FollowUps;
+
+
+
+
+

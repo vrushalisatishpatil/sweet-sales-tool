@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LayoutDashboard, Users, PhoneCall, ClipboardList, StickyNote, UserCheck, BarChart3, Building2, ChevronLeft, Search, Bell, LogOut, Eye, EyeOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
@@ -31,8 +31,10 @@ interface AppLayoutProps {
 
 const AppLayout = ({ children }: AppLayoutProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [globalSearch, setGlobalSearch] = useState("");
+  const searchableRoutes = ["/leads", "/follow-ups", "/assign-tasks", "/add-notes", "/sales-team", "/clients"];
   const [session, setSession] = useState<Session | null>(null);
   const [localSessionEmail, setLocalSessionEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<"admin" | "salesperson">("salesperson");
@@ -46,6 +48,10 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loginRole, setLoginRole] = useState<"admin" | "salesperson">("admin");
   const adminEmail = "care@waxitylubricant.com";
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    setGlobalSearch(params.get("q") || "");
+  }, [location.search]);
 
   useEffect(() => {
     const storedEmail = localStorage.getItem("salesperson_email");
@@ -160,6 +166,22 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     }
   };
 
+
+  const handleGlobalSearchChange = (value: string) => {
+    setGlobalSearch(value);
+
+    const targetPath = searchableRoutes.includes(location.pathname) ? location.pathname : "/leads";
+    const params = new URLSearchParams(targetPath === location.pathname ? location.search : "");
+
+    if (value.trim()) {
+      params.set("q", value.trim());
+    } else {
+      params.delete("q");
+    }
+
+    const nextUrl = params.toString() ? `${targetPath}?${params.toString()}` : targetPath;
+    navigate(nextUrl, { replace: true });
+  };
   if (authLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-white">
@@ -336,7 +358,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                 type="text"
                 placeholder="Search leads, contacts, companies..."
                 value={globalSearch}
-                onChange={(e) => setGlobalSearch(e.target.value)}
+                onChange={(e) => handleGlobalSearchChange(e.target.value)}
                 className="w-64 border-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
             </div>
@@ -379,3 +401,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 };
 
 export default AppLayout;
+
+
+
+
+

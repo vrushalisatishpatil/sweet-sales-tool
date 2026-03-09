@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Plus, Search, ListTodo, Clock, AlertTriangle, CheckCircle2, User, Calendar, Building2, Filter, Check, ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/lib/supabase";
@@ -6,6 +7,7 @@ import { formatDateDDMMYYYY, convertDDMMYYYYtoISO, convertISOtoDDMMYYYY } from "
 import { Calendar as CalendarIcon } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import type { TaskPriority, TaskStatus } from "@/types/database.types";
+import { matchesDynamicSearch } from "@/lib/search";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,6 +38,7 @@ const AssignTasks = () => {
   const [error, setError] = useState<string | null>(null);
   const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchParams] = useSearchParams();
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [priorityFilter, setPriorityFilter] = useState("All Priorities");
   const [isStatusOpen, setIsStatusOpen] = useState(false);
@@ -80,6 +83,10 @@ const AssignTasks = () => {
     fetchTasks();
     fetchSalesTeam();
   }, [userRole, userName]);
+
+  useEffect(() => {
+    setSearchQuery(searchParams.get("q") || "");
+  }, [searchParams]);
 
   const fetchSalesTeam = async () => {
     try {
@@ -299,10 +306,15 @@ const AssignTasks = () => {
 
   // Filter tasks
   const filteredTasks = tasksData.filter((task) => {
-    const matchesSearch = 
-      task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.taskId.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = matchesDynamicSearch(searchQuery, [
+      task.title,
+      task.description,
+      task.taskId,
+      task.assignedTo,
+      task.priority,
+      task.status,
+      task.dueDate,
+    ]);
     const matchesStatus = statusFilter === "All Status" || task.status === statusFilter;
     const matchesPriority = priorityFilter === "All Priorities" || task.priority === priorityFilter;
     return matchesSearch && matchesStatus && matchesPriority;
@@ -860,3 +872,8 @@ const AssignTasks = () => {
 };
 
 export default AssignTasks;
+
+
+
+
+

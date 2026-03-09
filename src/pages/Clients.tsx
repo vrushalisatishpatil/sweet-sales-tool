@@ -1,8 +1,10 @@
 import { Search, Upload, Plus, Users, X, Download, Edit, Trash2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import * as XLSX from 'xlsx';
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/lib/supabase";
+import { matchesDynamicSearch } from "@/lib/search";
 import {
   Dialog,
   DialogContent,
@@ -66,6 +68,7 @@ const Clients = () => {
   const [isEditClientOpen, setIsEditClientOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchParams] = useSearchParams();
   const [partyName, setPartyName] = useState("");
   const [pincode, setPincode] = useState("");
   const [state, setState] = useState("");
@@ -137,6 +140,10 @@ const Clients = () => {
   useEffect(() => {
     fetchClients();
   }, []);
+
+  useEffect(() => {
+    setSearchQuery(searchParams.get("q") || "");
+  }, [searchParams]);
 
   const handleAddClient = async () => {
     if (!partyName.trim()) return;
@@ -527,16 +534,14 @@ const Clients = () => {
               </tr>
             </thead>
             <tbody>
-              {clientsData.filter((client) => {
-                const query = searchQuery.toLowerCase();
-                return (
-                  client.company.toLowerCase().includes(query) ||
-                  (client.pincode?.toLowerCase().includes(query) || false) ||
-                  (client.state?.toLowerCase().includes(query) || false) ||
-                  (client.main_area?.toLowerCase().includes(query) || false) ||
-                  client.sub_areas.some(area => area.toLowerCase().includes(query))
-                );
-              }).map((client) => (
+              {clientsData.filter((client) => matchesDynamicSearch(searchQuery, [
+                client.company,
+                client.pincode,
+                client.state,
+                client.main_area,
+                client.sub_areas,
+                client.id,
+              ])).map((client) => (
                 <tr key={client.id} className="border-b border-border last:border-0 hover:bg-accent/50">
                   <td className="px-4 py-3 text-sm font-medium text-foreground">{client.company}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{client.pincode || '-'}</td>
@@ -845,3 +850,8 @@ const Clients = () => {
 };
 
 export default Clients;
+
+
+
+
+

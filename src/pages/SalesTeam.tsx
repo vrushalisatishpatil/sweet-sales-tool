@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Mail, Phone, Plus, Search, CheckCircle2, Loader2, AlertCircle, Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -7,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { Database } from "@/types/database.types";
 import { useUser } from "@/context/UserContext";
+import { matchesDynamicSearch } from "@/lib/search";
 
 type SalesPerson = Database['public']['Tables']['sales_team']['Row'];
 
 const SalesTeam = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchParams] = useSearchParams();
   const [salesTeam, setSalesTeam] = useState<SalesPerson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +40,10 @@ const SalesTeam = () => {
   useEffect(() => {
     fetchSalesTeam();
   }, []);
+
+  useEffect(() => {
+    setSearchQuery(searchParams.get("q") || "");
+  }, [searchParams]);
 
   useEffect(() => {
     if (isAddPersonDialogOpen) {
@@ -305,9 +312,16 @@ const SalesTeam = () => {
 
   // Filter sales team
   const filteredSalesTeam = salesTeam.filter((person) => {
-    const matchesSearch = 
-      person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      person.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = matchesDynamicSearch(searchQuery, [
+      person.name,
+      person.email,
+      person.phone,
+      person.person_id,
+      person.status,
+      person.leads,
+      person.converted,
+      person.rate,
+    ]);
     return matchesSearch;
   });
 
@@ -659,3 +673,8 @@ const SalesTeam = () => {
 };
 
 export default SalesTeam;
+
+
+
+
+
